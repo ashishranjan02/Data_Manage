@@ -3,7 +3,6 @@ import "jspdf-autotable";
 import  {FIELD_MAP} from "./MemberDetail";
 import {getValueByPath} from "./MemberDetail"
 
-
 const truncateText = (text, maxLength) => {
     if (!text) return "N/A";
     return text.length > maxLength ? text.substring(0, maxLength) + "..." : text;
