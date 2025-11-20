@@ -10,18 +10,16 @@ import {
     Divider,
 } from "@mui/material";
 import DashboardIcon from "@mui/icons-material/Dashboard";
-import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import EventSeatIcon from "@mui/icons-material/EventSeat";
 import AssessmentIcon from "@mui/icons-material/Assessment";
-import SettingsIcon from "@mui/icons-material/Settings";
+
 import { Link } from "react-router-dom";
 import { People } from "@mui/icons-material";
 
 const Sidebar = () => {
     const menuItems = [
         { label: "Dashboard", route: "/dashboard", icon: <DashboardIcon /> },
-        { label: "Member", route: "/society", icon: <People /> },
-        { label: "Member List", route: "/memberdetail", icon: <AdminPanelSettingsIcon /> },
+        { label: "Member", route: "/memberdetail", icon: <People /> },
         { label: "Report", route: "/report", icon: <AssessmentIcon /> },
         { label: "Greeting", route: "/greeting", icon: <EventSeatIcon /> },
         { label: "Guarantor", route: "/guarantor", icon: <People /> },

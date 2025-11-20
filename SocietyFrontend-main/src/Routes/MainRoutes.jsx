@@ -23,7 +23,7 @@ const MainRoutes = () => {
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route element={<DashboardLayout />}>
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/society" element={<MemberDossierForm />} />
+        <Route path="/addmember" element={<MemberDossierForm />} />
         <Route path="/report" element={<MissingMembersTable />} />
         <Route path="/greeting" element={<FestivalGreetingPage />} />
         <Route path="/member-details/:id" element={<MemberDetails />} />
