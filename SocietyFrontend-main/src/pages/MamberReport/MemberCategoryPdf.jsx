@@ -5,24 +5,25 @@ import * as XLSX from "xlsx";
 // Field mapping (moved from MemberDetails)
 export const FIELD_MAP = {
     // Personal
+    "personalDetails.membershipNumber": "Membership No",
+    "personalDetails.membershipDate": "Membership Date",
     "personalDetails.title": "Title",
     "personalDetails.nameOfMember": "Member Name",
-    "personalDetails.membershipNumber": "Membership No",
-    "personalDetails.minor": "Is Minor",
     "personalDetails.nameOfFather": "Father's Name",
     "personalDetails.nameOfMother": "Mother's Name",
-    "personalDetails.nameOfSpouse": "Spouse's Name",
     "personalDetails.dateOfBirth": "Date of Birth",
     "personalDetails.ageInYears": "Age (Years)",
-    "personalDetails.membershipDate": "Membership Date",
-    "personalDetails.amountInCredit": "Amount In Credit",
+    "personalDetails.minor": "Is Minor",
     "personalDetails.gender": "Gender",
-    "personalDetails.maritalStatus": "Marital Status",
     "personalDetails.religion": "Religion",
+    "personalDetails.maritalStatus": "Marital Status",
     "personalDetails.caste": "Caste",
     "personalDetails.phoneNo": "Phone No",
     "personalDetails.alternatePhoneNo": "Alternate Phone",
     "personalDetails.emailId": "Email",
+    "personalDetails.nameOfSpouse": "Spouse's Name",
+    "personalDetails.amountInCredit": "Amount In Credit",
+  
 
     // Address
     "addressDetails.permanentAddress": "Permanent Address",
@@ -36,20 +37,18 @@ export const FIELD_MAP = {
 
     // Documents - Text Fields
     "documents.panNo": "PAN No",
-    "documents.rationCard": "Ration Card",
-    "documents.drivingLicense": "Driving License",
-    "documents.aadhaarNo": "Aadhaar No",
-    "documents.voterId": "Voter ID",
-    "documents.passportNo": "Passport No",
-
-    // Documents - Image Fields
-    "documents.passportSize": "Passport Size Photo",
     "documents.panNoPhoto": "PAN Card Photo",
+    "documents.rationCard": "Ration Card",
     "documents.rationCardPhoto": "Ration Card Photo",
+    "documents.drivingLicense": "Driving License",
     "documents.drivingLicensePhoto": "Driving License Photo",
+    "documents.aadhaarNo": "Aadhaar No",
     "documents.aadhaarNoPhoto": "Aadhaar Card Photo",
+    "documents.voterId": "Voter ID",
     "documents.voterIdPhoto": "Voter ID Photo",
+    "documents.passportNo": "Passport No",
     "documents.passportNoPhoto": "Passport Photo",
+    "documents.passportSize": "Passport Size Photo",
 
     // Professional - Basic
     "professionalDetails.qualification": "Qualification",
@@ -234,6 +233,22 @@ export const generateMemberFieldsPDF = (member, category, viewType = "all") => {
                            category === "missing" ? "Missing Fields" : 
                            CATEGORY_MAP[category] || category;
 
+    // Add page number function
+    const addPageNumbers = (doc) => {
+        const pageCount = doc.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(100);
+            doc.text(
+                `Page ${i} of ${pageCount}`,
+                doc.internal.pageSize.width / 2,
+                doc.internal.pageSize.height - 10,
+                { align: 'center' }
+            );
+        }
+    };
+
     doc.setFontSize(16);
     doc.text(`Member Report - ${memberName}`, 14, 16);
     doc.setFontSize(10);
@@ -261,8 +276,15 @@ export const generateMemberFieldsPDF = (member, category, viewType = "all") => {
             1: { cellWidth: 60 },
             2: { cellWidth: 'auto' }
         },
-        theme: 'grid'
+        theme: 'grid',
+        // Add page number after table is drawn
+        didDrawPage: (data) => {
+            // This will be called for each page, but we'll add all page numbers at the end
+        }
     });
+
+    // Add page numbers after the table is completely drawn
+    addPageNumbers(doc);
 
     const fileName = `${memberName.replace(/\s+/g, "_")}_${categoryDisplay.replace(/\s+/g, "_")}_${viewType}_${Date.now()}.pdf`;
     doc.save(fileName);
