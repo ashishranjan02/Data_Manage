@@ -15,6 +15,9 @@ import MemberViewPage from '../pages/Member/MemberView.jsx';
 import MemberEditPage from '../pages/Member/MemberEdit.jsx';
 import NoticePage from '../pages/Notice/Notice.jsx'
 import Login from "../components/Login.jsx";
+import LoanForm from "../pages/Loan/LoanForm.jsx";
+import PDCDetails from '../pages/Loan/PdcDetail.jsx';
+import LoanView from '../pages/Loan/LoanView.jsx';
 
 const MainRoutes = () => {
   return (
@@ -34,6 +37,9 @@ const MainRoutes = () => {
         <Route path="/member/view/:id" element={<MemberViewPage />} />
         <Route path="/member/edit/:id" element={<MemberEditPage />} />
         <Route path="/notice" element={<NoticePage />} />
+        <Route path="/loan" element={<LoanForm />} />
+        <Route path="/pdc" element={<PDCDetails />} />
+        <Route path="/view-loan" element={<LoanView />} />
       </Route>
     </Routes>
   )

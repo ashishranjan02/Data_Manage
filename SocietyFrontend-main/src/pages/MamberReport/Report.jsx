@@ -27,7 +27,8 @@ import {
     Alert,
     Chip,
     Tabs,
-    Tab
+    Tab,
+    TablePagination
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
@@ -272,6 +273,8 @@ const MissingMembersTable = () => {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [memberToDelete, setMemberToDelete] = useState(null);
     const [tabValue, setTabValue] = useState(0);
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(10);
 
     // Fetch members on component mount
     useEffect(() => {
@@ -443,6 +446,12 @@ const MissingMembersTable = () => {
 
                         return result;
                     }, [values.search, values.selectedField, values.viewType, values.civilScoreFilter, members]);
+
+                    // Paginated data
+                    const paginatedMembers = useMemo(() => {
+                        const startIndex = page * rowsPerPage;
+                        return filteredMembers.slice(startIndex, startIndex + rowsPerPage);
+                    }, [filteredMembers, page, rowsPerPage]);
 
                     const allMembersCount = useMemo(() => {
                         return members.filter(m => {
@@ -679,133 +688,118 @@ const MissingMembersTable = () => {
                                     No members match the current filters.
                                 </Alert>
                             ) : (
-                                <TableContainer component={Paper} sx={{ maxHeight: '70vh', overflow: 'auto' }}>
-                                    <Table stickyHeader size="small">
-                                        <TableHead>
-                                            <TableRow>
-                                                <TableCell sx={{ fontWeight: "bold", bgcolor: 'primary.main', color: 'white' }}>S. No</TableCell>
-                                                <TableCell sx={{ fontWeight: "bold", bgcolor: 'primary.main', color: 'white' }}>Member Name</TableCell>
-                                                <TableCell sx={{ fontWeight: "bold", bgcolor: 'primary.main', color: 'white' }}>Membership No</TableCell>
-                                                <TableCell sx={{ fontWeight: "bold", bgcolor: 'primary.main', color: 'white' }}>Phone No</TableCell>
-                                                <TableCell sx={{ fontWeight: "bold", bgcolor: 'primary.main', color: 'white' }}>
-                                                    {ALL_FIELDS[values.selectedField]} Status
-                                                </TableCell>
-                                                {values.selectedField === "bankDetails.civilScore" && (
+                                <Paper>
+                                    <TableContainer sx={{ maxHeight: '70vh', overflow: 'auto' }}>
+                                        <Table stickyHeader size="small">
+                                            <TableHead>
+                                                <TableRow>
+                                                    <TableCell sx={{ fontWeight: "bold", bgcolor: 'primary.main', color: 'white' }}>S. No</TableCell>
+                                                    <TableCell sx={{ fontWeight: "bold", bgcolor: 'primary.main', color: 'white' }}>Member Name</TableCell>
+                                                    <TableCell sx={{ fontWeight: "bold", bgcolor: 'primary.main', color: 'white' }}>Membership No</TableCell>
+                                                    <TableCell sx={{ fontWeight: "bold", bgcolor: 'primary.main', color: 'white' }}>Phone No</TableCell>
                                                     <TableCell sx={{ fontWeight: "bold", bgcolor: 'primary.main', color: 'white' }}>
-                                                        Civil Score Value
+                                                        {ALL_FIELDS[values.selectedField]} Status
                                                     </TableCell>
-                                                )}
-                                                <TableCell sx={{ fontWeight: "bold", bgcolor: 'primary.main', color: 'white' }}>Actions</TableCell>
-                                            </TableRow>
-                                        </TableHead>
+                                                    <TableCell sx={{ fontWeight: "bold", bgcolor: 'primary.main', color: 'white' }}>Actions</TableCell>
+                                                </TableRow>
+                                            </TableHead>
 
-                                        <TableBody>
-                                            {filteredMembers.map((m, idx) => {
-                                                const fieldValue = getValueByPath(m, values.selectedField);
-                                                const isFieldMissing = isMissing(fieldValue);
-                                                const civilScore = getValueByPath(m, "bankDetails.civilScore");
-                                                const civilScoreStatus = getCivilScoreStatus(civilScore);
+                                            <TableBody>
+                                                {paginatedMembers.map((m, idx) => {
+                                                    const fieldValue = getValueByPath(m, values.selectedField);
+                                                    const isFieldMissing = isMissing(fieldValue);
+                                                    const civilScore = getValueByPath(m, "bankDetails.civilScore");
+                                                    const civilScoreStatus = getCivilScoreStatus(civilScore);
 
-                                                return (
-                                                    <TableRow
-                                                        key={m._id || idx}
-                                                        sx={{
-                                                            "&:nth-of-type(odd)": { backgroundColor: "#fafafa" },
-                                                            "&:hover": { backgroundColor: "#f0f0f0", cursor: "pointer" },
-                                                            backgroundColor: isFieldMissing ? "#ffebee" : "inherit"
-                                                        }}
-                                                        onClick={() => handleViewDetails(m)}
-                                                    >
-                                                        <TableCell>{idx + 1}</TableCell>
-                                                        <TableCell>
-                                                            {getValueByPath(m, "personalDetails.nameOfMember") || "—"}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {getValueByPath(m, "personalDetails.membershipNumber") || "—"}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {getValueByPath(m, "personalDetails.phoneNo") || "—"}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {values.selectedField === "bankDetails.civilScore" ? (
-                                                                <Chip
-                                                                    label={
-                                                                        civilScoreStatus === "missing" ? "MISSING" :
-                                                                            civilScoreStatus === "excellent" ? "EXCELLENT" :
-                                                                                civilScoreStatus === "good" ? "GOOD" :
-                                                                                    civilScoreStatus === "poor" ? "POOR" : "INVALID"
-                                                                    }
-                                                                    color={
-                                                                        civilScoreStatus === "missing" ? "default" :
-                                                                            civilScoreStatus === "excellent" ? "success" :
-                                                                                civilScoreStatus === "good" ? "warning" :
-                                                                                    civilScoreStatus === "poor" ? "error" : "error"
-                                                                    }
-                                                                    size="small"
-                                                                />
-                                                            ) : (
-                                                                <Chip
-                                                                    label={isFieldMissing ? "MISSING" : "AVAILABLE"}
-                                                                    color={isFieldMissing ? "error" : "success"}
-                                                                    size="small"
-                                                                />
-                                                            )}
-                                                        </TableCell>
-
-                                                        {/* Civil Score Value Column */}
-                                                        {values.selectedField === "bankDetails.civilScore" && (
+                                                    return (
+                                                        <TableRow
+                                                            key={m._id || idx}
+                                                            sx={{
+                                                                "&:nth-of-type(odd)": { backgroundColor: "#fafafa" },
+                                                                "&:hover": { backgroundColor: "#f0f0f0", cursor: "pointer" },
+                                                                backgroundColor: isFieldMissing ? "#ffebee" : "inherit"
+                                                            }}
+                                                            onClick={() => handleViewDetails(m)}
+                                                        >
+                                                            <TableCell>{page * rowsPerPage + idx + 1}</TableCell>
                                                             <TableCell>
-                                                                {civilScore ? (
-                                                                    <Typography
-                                                                        variant="body2"
-                                                                        sx={{
-                                                                            fontWeight: 'bold',
-                                                                            color:
-                                                                                civilScoreStatus === "excellent" ? '#2e7d32' :
-                                                                                    civilScoreStatus === "good" ? '#ed6c02' :
-                                                                                        civilScoreStatus === "poor" ? '#d32f2f' : '#757575'
-                                                                        }}
-                                                                    >
-                                                                        {civilScore}
-                                                                    </Typography>
+                                                                {getValueByPath(m, "personalDetails.nameOfMember") || "—"}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {getValueByPath(m, "personalDetails.membershipNumber") || "—"}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {getValueByPath(m, "personalDetails.phoneNo") || "—"}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {values.selectedField === "bankDetails.civilScore" ? (
+                                                                    <Chip
+                                                                        label={
+                                                                            civilScoreStatus === "missing" ? "MISSING" :
+                                                                                civilScoreStatus === "excellent" ? "EXCELLENT" :
+                                                                                    civilScoreStatus === "good" ? "GOOD" :
+                                                                                        civilScoreStatus === "poor" ? "POOR" : "INVALID"
+                                                                        }
+                                                                        color={
+                                                                            civilScoreStatus === "missing" ? "default" :
+                                                                                civilScoreStatus === "excellent" ? "success" :
+                                                                                    civilScoreStatus === "good" ? "warning" :
+                                                                                        civilScoreStatus === "poor" ? "error" : "error"
+                                                                        }
+                                                                        size="small"
+                                                                    />
                                                                 ) : (
-                                                                    <Typography variant="body2" color="text.secondary">
-                                                                        —
-                                                                    </Typography>
+                                                                    <Chip
+                                                                        label={isFieldMissing ? "MISSING" : "AVAILABLE"}
+                                                                        color={isFieldMissing ? "error" : "success"}
+                                                                        size="small"
+                                                                    />
                                                                 )}
                                                             </TableCell>
-                                                        )}
 
-                                                        <TableCell>
-                                                            <Box sx={{ display: 'flex', gap: 1 }}>
-                                                                <IconButton
-                                                                    size="small"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        handleViewDetails(m);
-                                                                    }}
-                                                                    title="View Details"
-                                                                    color="primary"
-                                                                >
-                                                                    <VisibilityIcon />
-                                                                </IconButton>
-                                                                <IconButton
-                                                                    size="small"
-                                                                    onClick={(e) => handleDeleteClick(m, e)}
-                                                                    title="Delete Member"
-                                                                    color="error"
-                                                                    disabled={operationLoading.delete}
-                                                                >
-                                                                    <DeleteIcon />
-                                                                </IconButton>
-                                                            </Box>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                );
-                                            })}
-                                        </TableBody>
-                                    </Table>
-                                </TableContainer>
+                                                            <TableCell>
+                                                                <Box sx={{ display: 'flex', gap: 1 }}>
+                                                                    <IconButton
+                                                                        size="small"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleViewDetails(m);
+                                                                        }}
+                                                                        title="View Details"
+                                                                        color="primary"
+                                                                    >
+                                                                        <VisibilityIcon />
+                                                                    </IconButton>
+                                                                    <IconButton
+                                                                        size="small"
+                                                                        onClick={(e) => handleDeleteClick(m, e)}
+                                                                        title="Delete Member"
+                                                                        color="error"
+                                                                        disabled={operationLoading.delete}
+                                                                    >
+                                                                        <DeleteIcon />
+                                                                    </IconButton>
+                                                                </Box>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })}
+                                            </TableBody>
+                                        </Table>
+                                    </TableContainer>
+                                    <TablePagination
+                                        component="div"
+                                        count={filteredMembers.length}
+                                        page={page}
+                                        onPageChange={(e, newPage) => setPage(newPage)}
+                                        rowsPerPage={rowsPerPage}
+                                        onRowsPerPageChange={(e) => {
+                                            setRowsPerPage(parseInt(e.target.value, 10));
+                                            setPage(0);
+                                        }}
+                                        rowsPerPageOptions={[5, 10, 25, 50, 100]}
+                                    />
+                                </Paper>
                             )}
                         </Form>
                     );

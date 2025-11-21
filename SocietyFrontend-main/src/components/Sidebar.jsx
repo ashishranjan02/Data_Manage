@@ -12,7 +12,7 @@ import {
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import EventSeatIcon from "@mui/icons-material/EventSeat";
 import AssessmentIcon from "@mui/icons-material/Assessment";
-
+import RealEstateAgentIcon from '@mui/icons-material/RealEstateAgent';
 import { Link } from "react-router-dom";
 import { People } from "@mui/icons-material";
 
@@ -23,7 +23,8 @@ const Sidebar = () => {
         { label: "Report", route: "/report", icon: <AssessmentIcon /> },
         { label: "Greeting", route: "/greeting", icon: <EventSeatIcon /> },
         { label: "Guarantor", route: "/guarantorList", icon: <People /> },
-        { label: "Notice", route: "/notice", icon: <AssessmentIcon /> }
+        { label: "Notice", route: "/notice", icon: <AssessmentIcon /> },
+        { label: "Loan", route: "/view-loan", icon: <RealEstateAgentIcon /> },
     ];
 
     return (

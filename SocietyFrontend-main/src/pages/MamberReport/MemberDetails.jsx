@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -89,7 +89,7 @@ const MemberDetails = () => {
         });
         setEditDialogOpen(true);
     };
-
+    
     const handleSaveField = async (fieldKey, newValue) => {
         try {
             const isImageField = imageFields.includes(fieldKey);
@@ -168,18 +168,6 @@ const MemberDetails = () => {
         }
     };
 
-    const handleExcelDownload = () => {
-        if (!selectedMember) return;
-        
-        try {
-            exportMemberToExcel(selectedMember, category, viewType);
-        } catch (e) {
-            console.error("Excel export failed:", e);
-            setSnackbarMessage("Error generating Excel");
-            setSnackbarSeverity("error");
-            setSnackbarOpen(true);
-        }
-    };
 
     // Enhanced formatValue function
     const formatValue = (value, fieldKey) => {
