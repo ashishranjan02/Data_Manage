@@ -243,6 +243,24 @@ function TabPanel({ children, value, index, ...other }) {
     );
 }
 
+// helper to add "Page X of Y" footer to all pages
+const addPageNumbers = (doc) => {
+    try {
+        const pageCount = doc.getNumberOfPages();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const footerY = pageHeight - 10;
+        doc.setFontSize(9);
+        doc.setTextColor(100);
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.text(`Page ${i} of ${pageCount}`, pageWidth / 2, footerY, { align: 'center' });
+        }
+    } catch (err) {
+        console.error("Failed to add page numbers:", err);
+    }
+}
+
 // Main Component
 const MissingMembersTable = () => {
     const dispatch = useDispatch();
@@ -294,6 +312,9 @@ const MissingMembersTable = () => {
             styles: { fontSize: 9, cellPadding: 3 },
             headStyles: { fillColor: [25, 118, 210], textColor: 255, fontSize: 10 },
         });
+
+        // add page numbers before saving
+        addPageNumbers(doc);
 
         doc.save(`${viewType}_${ALL_FIELDS[selectedField]}_Report_${Date.now()}.pdf`);
     };
@@ -421,7 +442,7 @@ const MissingMembersTable = () => {
                         }
 
                         return result;
-                    }, [values.search, values.selectedField, values.viewType, values.categoryDetails, values.civilScoreFilter, members]);
+                    }, [values.search, values.selectedField, values.viewType, values.civilScoreFilter, members]);
 
                     const allMembersCount = useMemo(() => {
                         return members.filter(m => {
@@ -532,7 +553,7 @@ const MissingMembersTable = () => {
                                         onClick={() => generatePDF(filteredMembers, values.selectedField, values.viewType)}
                                         disabled={filteredMembers.length === 0}
                                     >
-                                        Download
+                                        Download PDF
                                     </Button>
 
                                     <Button
