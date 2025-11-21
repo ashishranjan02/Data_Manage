@@ -383,7 +383,6 @@ const MissingMembersTable = () => {
                 search: "",
                 selectedField: "documents.aadhaarNo",
                 viewType: "all", // all, missing, available
-                categoryDetails:"",
                 civilScoreFilter: "all" // Civil score specific filter
             }} onSubmit={() => { }}>
                 {({ values, setFieldValue }) => {
@@ -410,13 +409,6 @@ const MissingMembersTable = () => {
                                 const isFieldMissing = isMissing(fieldValue);
                                 return values.viewType === "missing" ? isFieldMissing : !isFieldMissing;
                             });
-                        }
-
-                        if(values.categoryDetails !== ""){
-                            result = result.filter(m => {
-                                const fieldValue = getValueByPath(m, values.categoryDetails);
-                                return fieldValue;
-                            })
                         }
 
                         // Filter by civil score (if civil score field is selected)
@@ -503,7 +495,7 @@ const MissingMembersTable = () => {
                                         sx={{ width: 300 }}
                                     />
 
-                                    <FormControl size="small" sx={{ minWidth: 150 }}>
+                                    <FormControl size="small" sx={{ minWidth: 180 }}>
                                         <InputLabel>View Type</InputLabel>
                                         <Select
                                             value={values.viewType}
@@ -538,33 +530,6 @@ const MissingMembersTable = () => {
                                         variant="contained"
                                         startIcon={<PictureAsPdfIcon />}
                                         onClick={() => generatePDF(filteredMembers, values.selectedField, values.viewType)}
-                                        disabled={filteredMembers.length === 0}
-                                    >
-                                        Download
-                                    </Button>
-
-                                    <FormControl size="small" sx={{ minWidth: 160 }}>
-                                        <InputLabel>Category Details</InputLabel>
-                                        <Select
-                                            value={values.categoryDetails}
-                                            label="Category Details"
-                                            onChange={(e) => setFieldValue("categoryDetails", e.target.value)}
-                                        >
-                                            <MenuItem value="personalDetails">Personal</MenuItem>
-                                            <MenuItem value="addressDetails">Address</MenuItem>
-                                            <MenuItem value="documents">Document</MenuItem>
-                                            <MenuItem value="professionalDetails">Professional</MenuItem>
-                                            <MenuItem value="familyDetails">Family</MenuItem>
-                                            <MenuItem value="bankDetails">Bank</MenuItem>
-                                            <MenuItem value="referenceDetails">Reference</MenuItem>
-                                            <MenuItem value="guaranteeDetails">Guarantee</MenuItem>
-                                            <MenuItem value="loanDetails">Loan</MenuItem>
-                                        </Select>
-                                    </FormControl>
-                                    <Button
-                                        variant="contained"
-                                        startIcon={<PictureAsPdfIcon />}
-                                        onClick={() => generatePDF(filteredMembers, values.selectedField, values.categoryDetails)}
                                         disabled={filteredMembers.length === 0}
                                     >
                                         Download

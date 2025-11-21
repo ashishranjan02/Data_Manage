@@ -9,9 +9,7 @@ export const GuarantorPdf = (member, guarantorFor = [], hasGuarantors = []) => {
 
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
 
-    // ============================
-    // 🎨 ATTRACTIVE HEADER WITH GRADIENT
-    // ============================
+    
     doc.setFillColor(25, 118, 210);
     doc.rect(0, 0, 210, 25, 'F');
 
