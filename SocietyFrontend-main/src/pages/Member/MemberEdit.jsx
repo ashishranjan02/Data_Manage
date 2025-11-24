@@ -176,71 +176,87 @@ export default function MemberEditPage({ open, member, onClose }) {
   };
 
   const EditableArrayField = ({ label, values, path, onUpdate }) => {
-    const [isEditing, setIsEditing] = useState(false);
-    const [editValue, setEditValue] = useState(values?.join(", ") || "");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(values?.join(", ") || "");
 
-    useEffect(() => {
-      setEditValue(values?.join(", ") || "");
-    }, [values]);
+  useEffect(() => {
+    setEditValue(values?.join(", ") || "");
+  }, [values]);
 
-    const saveField = () => {
-      const newArray = editValue.split(",").map(item => item.trim()).filter(item => item);
-      onUpdate(path, newArray);
-      setIsEditing(false);
-    };
+  const saveField = () => {
+    const newArray = editValue
+      .split(",")
+      .map(item => item.trim())
+      .filter(item => item); 
 
-    const keyHandler = (e) => {
-      if (e.key === "Enter") saveField();
-      if (e.key === "Escape") setIsEditing(false);
-    };
-
-    return (
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="subtitle2" color="primary" gutterBottom sx={{ fontWeight: 600 }}>
-          {label}
-        </Typography>
-        {isEditing ? (
-          <TextField
-            autoFocus
-            fullWidth
-            size="small"
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            onBlur={saveField}
-            onKeyDown={keyHandler}
-            placeholder="Enter values separated by commas"
-          />
-        ) : (
-          <Box
-            sx={{
-              p: 1.5,
-              borderRadius: 1,
-              cursor: "pointer",
-              border: "1px solid #e0e0e0",
-              backgroundColor: "#fafafa",
-              "&:hover": {
-                border: "1px solid #1976d2",
-                backgroundColor: "#f0f8ff"
-              }
-            }}
-            onClick={() => setIsEditing(true)}
-          >
-            {values?.length > 0 ? (
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                {values.map((item, index) => (
-                  <Chip key={index} label={item} size="small" variant="outlined" />
-                ))}
-              </Box>
-            ) : (
-              <Typography variant="body2" color="text.secondary">
-                Click to add values
-              </Typography>
-            )}
-          </Box>
-        )}
-      </Box>
-    );
+    onUpdate(path, newArray);
+    setIsEditing(false);
   };
+
+  const keyHandler = (e) => {
+    if (e.key === "Enter") saveField();
+    if (e.key === "Escape") setIsEditing(false);
+  };
+
+  return (
+    <Box sx={{ mb: 2 }}>
+      <Typography
+        variant="subtitle2"
+        color="primary"
+        gutterBottom
+        sx={{ fontWeight: 600 }}
+      >
+        {label}
+      </Typography>
+
+      {isEditing ? (
+        <TextField
+          autoFocus
+          fullWidth
+          size="small"
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onBlur={saveField}
+          onKeyDown={keyHandler}
+          placeholder="Enter values separated by commas"
+        />
+      ) : (
+        <Box
+          sx={{
+            p: 1.5,
+            borderRadius: 1,
+            cursor: "pointer",
+            border: "1px solid #e0e0e0",
+            backgroundColor: "#fafafa",
+            "&:hover": {
+              border: "1px solid #1976d2",
+              backgroundColor: "#f0f8ff"
+            }
+          }}
+          onClick={() => setIsEditing(true)}
+        >
+          {values && values.length > 0 ? (
+            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+              {values.map((item, index) => (
+                <Chip
+                  key={index}
+                  label={item}
+                  size="small"
+                  variant="outlined"
+                />
+              ))}
+            </Box>
+          ) : (
+            <Typography sx={{ color: "#9e9e9e" }}>
+              Missing
+            </Typography>
+          )}
+        </Box>
+      )}
+    </Box>
+  );
+};
+
 
   if (!member) return null;
 
