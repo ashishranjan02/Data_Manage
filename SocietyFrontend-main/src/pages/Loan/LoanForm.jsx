@@ -5,20 +5,14 @@ import {
     Typography,
     TextField,
     MenuItem,
-    Paper,
     Divider,
     Button,
     Alert,
     Snackbar,
+    Autocomplete,
 } from "@mui/material";
-import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import {
-    createLoan,
-    getAllLoans,
-    getLoansByMemberId,
-    resetLoanState,
-} from "../../features/loan/loanSlice";
+import { fetchAllMembers } from "../../features/member/memberSlice";
 
 // =========================
 // ⭐ Custom TextField (Memo)
@@ -38,9 +32,7 @@ const CustomTextField = React.memo(({ name, value, onChange, ...props }) => (
     />
 ));
 
-// =========================
-// ⭐ Form Row (Memo)
-// =========================
+
 const FormRow = React.memo(({ number, label, children }) => (
     <Grid
         container
@@ -63,96 +55,80 @@ const FormRow = React.memo(({ number, label, children }) => (
     </Grid>
 ));
 
-
 // =========================
 // ⭐ Main Component
 // =========================
 
-const LoanForm = () => {
-    const navigate = useNavigate();
+const LoanForm = ({ onLoanDataCollected, loanFormData }) => {
     const dispatch = useDispatch();
 
-    const { loans, memberLoans, loading, error, success } = useSelector((state) => state.loan);
+    // Try different possible member state structures
+    const members = useSelector((state) =>
+        state.member?.members ||
+        state.members?.members ||
+        state.member?.data ||
+        state.members?.data ||
+        []
+    );
 
-    const initialFormState = {
-        loanType: "",
-        membershipNumber: "",
-        loanDate: "",
-        loanAmount: "",
-        purpose: "",
-        lafMembershipNumber: "",
-        lafDate: "",
-        lafAmount: "",
-        fdrAmount: "",
-        fdrScheme: "",
-    };
-
-    const [form, setForm] = useState(initialFormState);
-    const [allLoans, setAllLoans] = useState({});
-    const [selectedMember, setSelectedMember] = useState("");
+    const [form, setForm] = useState(loanFormData || {});
     const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
+    const [memberSearchValue, setMemberSearchValue] = useState(null);
+    const [lafMemberSearchValue, setLafMemberSearchValue] = useState(null);
 
-    // Load all loans
+    // Load all members
     useEffect(() => {
-        dispatch(getAllLoans());
+        dispatch(fetchAllMembers());
     }, [dispatch]);
-
-
-    useEffect(() => {
-        if (!loans || loans.length === 0) return;
-
-        const transformed = {};
-        loans.forEach(loan => {
-            transformed[loan.membershipNumber] = {
-                loan: {
-                    loanType: loan.typeOfLoan,
-                    membershipNumber: loan.membershipNumber,
-                    loanDate: loan.loanDate,
-                    loanAmount: loan.loanAmount,
-                    purpose: loan.purposeOfLoan,
-                    lafDate: loan.lafDate,
-                    fdrAmount: loan.fdrAmount,
-                    fdrScheme: loan.fdrSchema,
-                },
-                pdc: loan.pdcDetails || []
-            };
-        });
-
-        if (JSON.stringify(transformed) !== JSON.stringify(allLoans)) {
-            setAllLoans(transformed);
-            localStorage.setItem("loan_pdc_app_all", JSON.stringify(transformed));
-        }
-    }, [loans]);
-
-
-    // Handle API responses
-    useEffect(() => {
-        if (success) {
-            setSnackbar({ open: true, message: "Loan created successfully!", severity: "success" });
-            setForm(initialFormState);
-            setSelectedMember("");
-            dispatch(resetLoanState());
-        }
-
-        if (error) {
-            setSnackbar({ open: true, message: error, severity: "error" });
-        }
-    }, [success, error, dispatch]);
-
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setForm(prev => ({ ...prev, [name]: value }));
     };
 
+    // Handle member selection for Loan/LAP
+    const handleMemberSelect = (event, newValue) => {
+        setMemberSearchValue(newValue);
+        if (newValue) {
+            setForm(prev => ({
+                ...prev,
+                membershipNumber: newValue.personalDetails?.membershipNumber || "",
+                memberName: newValue.personalDetails?.nameOfMember || ""
+            }));
+        } else {
+            setForm(prev => ({
+                ...prev,
+                membershipNumber: "",
+                memberName: ""
+            }));
+        }
+    };
 
-    const handleNext = async () => {
+    // Handle member selection for LAF
+    const handleLafMemberSelect = (event, newValue) => {
+        setLafMemberSearchValue(newValue);
+        if (newValue) {
+            setForm(prev => ({
+                ...prev,
+                lafMembershipNumber: newValue.personalDetails?.membershipNumber || "",
+                lafMemberName: newValue.personalDetails?.nameOfMember || ""
+            }));
+        } else {
+            setForm(prev => ({
+                ...prev,
+                lafMembershipNumber: "",
+                lafMemberName: ""
+            }));
+        }
+    };
+
+    const handleNext = () => {
+        // Validation only - NO API call
         if (!form.loanType) {
             return setSnackbar({ open: true, message: "Select loan type", severity: "error" });
         }
 
-        const membershipNumber =
-            form.loanType === "LAF" ? form.lafMembershipNumber : form.membershipNumber;
+        const membershipNumber = form.loanType === "LAF" ? form.lafMembershipNumber : form.membershipNumber;
 
         if (!membershipNumber) {
             return setSnackbar({
@@ -162,71 +138,48 @@ const LoanForm = () => {
             });
         }
 
-        try {
-            const loanData = {
-                typeOfLoan: form.loanType,
-                membershipNumber,
-            };
-
-            if (form.loanType === "Loan" || form.loanType === "LAP") {
-                if (!form.loanDate || !form.loanAmount || !form.purpose) {
-                    return setSnackbar({
-                        open: true,
-                        message: "Fill all Loan fields",
-                        severity: "error",
-                    });
-                }
-                loanData.loanDate = form.loanDate;
-                loanData.loanAmount = form.loanAmount;
-                loanData.purposeOfLoan = form.purpose;
+        // Validate required fields based on loan type
+        if (form.loanType === "Loan" || form.loanType === "LAP") {
+            if (!form.loanDate || !form.loanAmount || !form.purpose) {
+                return setSnackbar({
+                    open: true,
+                    message: "Fill all Loan fields",
+                    severity: "error",
+                });
             }
+        }
 
-            if (form.loanType === "LAF") {
-                if (!form.lafDate || !form.lafAmount || !form.fdrAmount || !form.fdrScheme) {
-                    return setSnackbar({
-                        open: true,
-                        message: "Fill all LAF fields",
-                        severity: "error",
-                    });
-                }
-                loanData.lafDate = form.lafDate;
-                loanData.lafAmount = form.lafAmount;
-                loanData.fdrAmount = form.fdrAmount;
-                loanData.fdrSchema = form.fdrScheme;
+        if (form.loanType === "LAF") {
+            if (!form.lafDate || !form.lafAmount || !form.fdrAmount || !form.fdrScheme) {
+                return setSnackbar({
+                    open: true,
+                    message: "Fill all LAF fields",
+                    severity: "error",
+                });
             }
+        }
 
-            const result = await dispatch(createLoan(loanData)).unwrap();
-
-            navigate("/pdc", {
-                state: {
-                    ...form,
-                    loanId: result._id,
-                    membershipNumber,
-                },
-            });
-
-        } catch (err) {
-            console.error(err);
+        // 🔥 Just pass data to parent - NO API call
+        if (onLoanDataCollected) {
+            onLoanDataCollected(form);
         }
     };
 
+    // Safe member options
+    const memberOptions = Array.isArray(members) ? members : [];
 
     return (
-        <Paper
-            elevation={4}
-            sx={{
-                p: 4,
-                maxWidth: 950,
-                mx: "auto",
-                mt: 4,
-                borderRadius: 3,
-            }}
-        >
-            <Typography variant="h4" textAlign="center" fontWeight="bold" mb={2}>
-                LOAN DETAILS FORM
+        <Box>
+            <Typography variant="h5" textAlign="center" fontWeight="bold" mb={2}>
+                LOAN DETAILS
             </Typography>
 
             <Divider sx={{ mb: 3 }} />
+
+            {/* Debug info - remove in production */}
+            <Alert severity="info" sx={{ mb: 2 }}>
+                Members loaded: {memberOptions.length}
+            </Alert>
 
             {/* TOP SECTION */}
             <Box
@@ -240,7 +193,7 @@ const LoanForm = () => {
                     select
                     label="Type of Loan"
                     name="loanType"
-                    value={form.loanType}
+                    value={form.loanType || ""}
                     onChange={handleChange}
                     sx={{ minWidth: 200 }}
                 >
@@ -249,7 +202,6 @@ const LoanForm = () => {
                     <MenuItem value="LAP">LAP</MenuItem>
                 </CustomTextField>
             </Box>
-
 
             {/* LOAN FIELDS */}
             {(form.loanType === "Loan" || form.loanType === "LAP") && (
@@ -267,10 +219,27 @@ const LoanForm = () => {
                     </Typography>
 
                     <FormRow number="1" label="Membership Number">
-                        <CustomTextField
-                            name="membershipNumber"
-                            value={form.membershipNumber}
-                            onChange={handleChange}
+                        <Autocomplete
+                            options={memberOptions}
+                            value={memberSearchValue}
+                            onChange={handleMemberSelect}
+                            getOptionLabel={(option) =>
+                                option?.personalDetails?.membershipNumber
+                                    ? `${option.personalDetails.membershipNumber} - ${option.personalDetails.nameOfMember}`
+                                    : ""
+                            }
+                            isOptionEqualToValue={(option, value) =>
+                                option?._id === value?._id
+                            }
+                            renderInput={(params) => (
+                                <TextField
+                                    {...params}
+                                    size="small"
+                                    placeholder="Search by membership number or name"
+                                    sx={{ background: "#fff", borderRadius: 1 }}
+                                />
+                            )}
+                            noOptionsText="No members found"
                         />
                     </FormRow>
 
@@ -278,7 +247,7 @@ const LoanForm = () => {
                         <CustomTextField
                             type="date"
                             name="loanDate"
-                            value={form.loanDate}
+                            value={form.loanDate || ""}
                             onChange={handleChange}
                             InputLabelProps={{ shrink: true }}
                         />
@@ -288,7 +257,7 @@ const LoanForm = () => {
                         <CustomTextField
                             type="number"
                             name="loanAmount"
-                            value={form.loanAmount}
+                            value={form.loanAmount || ""}
                             onChange={handleChange}
                         />
                     </FormRow>
@@ -296,13 +265,13 @@ const LoanForm = () => {
                     <FormRow number="4" label="Purpose of Loan">
                         <CustomTextField
                             name="purpose"
-                            value={form.purpose}
+                            value={form.purpose || ""}
                             onChange={handleChange}
+                            placeholder="Enter loan purpose"
                         />
                     </FormRow>
                 </Box>
             )}
-
 
             {form.loanType === "LAF" && (
                 <Box
@@ -319,10 +288,27 @@ const LoanForm = () => {
                     </Typography>
 
                     <FormRow number="1" label="LAF Member Number">
-                        <CustomTextField
-                            name="lafMembershipNumber"
-                            value={form.lafMembershipNumber}
-                            onChange={handleChange}
+                        <Autocomplete
+                            options={memberOptions}
+                            value={lafMemberSearchValue}
+                            onChange={handleLafMemberSelect}
+                            getOptionLabel={(option) =>
+                                option?.personalDetails?.membershipNumber
+                                    ? `${option.personalDetails.membershipNumber} - ${option.personalDetails.nameOfMember}`
+                                    : ""
+                            }
+                            isOptionEqualToValue={(option, value) =>
+                                option?._id === value?._id
+                            }
+                            renderInput={(params) => (
+                                <TextField
+                                    {...params}
+                                    size="small"
+                                    placeholder="Search by membership number or name"
+                                    sx={{ background: "#fff", borderRadius: 1 }}
+                                />
+                            )}
+                            noOptionsText="No members found"
                         />
                     </FormRow>
 
@@ -330,7 +316,7 @@ const LoanForm = () => {
                         <CustomTextField
                             type="date"
                             name="lafDate"
-                            value={form.lafDate}
+                            value={form.lafDate || ""}
                             onChange={handleChange}
                             InputLabelProps={{ shrink: true }}
                         />
@@ -340,7 +326,7 @@ const LoanForm = () => {
                         <CustomTextField
                             type="number"
                             name="lafAmount"
-                            value={form.lafAmount}
+                            value={form.lafAmount || ""}
                             onChange={handleChange}
                         />
                     </FormRow>
@@ -349,7 +335,7 @@ const LoanForm = () => {
                         <CustomTextField
                             type="number"
                             name="fdrAmount"
-                            value={form.fdrAmount}
+                            value={form.fdrAmount || ""}
                             onChange={handleChange}
                         />
                     </FormRow>
@@ -357,13 +343,13 @@ const LoanForm = () => {
                     <FormRow number="5" label="FDR Scheme">
                         <CustomTextField
                             name="fdrScheme"
-                            value={form.fdrScheme}
+                            value={form.fdrScheme || ""}
                             onChange={handleChange}
+                            placeholder="Enter FDR scheme details"
                         />
                     </FormRow>
                 </Box>
             )}
-
 
             {/* NEXT BUTTON */}
             <Box textAlign="center" mt={4}>
@@ -372,10 +358,9 @@ const LoanForm = () => {
                     sx={{ px: 5, py: 1.2 }}
                     onClick={handleNext}
                 >
-                    Next
+                    Continue to PDC Details
                 </Button>
             </Box>
-
 
             <Snackbar
                 open={snackbar.open}
@@ -387,7 +372,7 @@ const LoanForm = () => {
                     {snackbar.message}
                 </Alert>
             </Snackbar>
-        </Paper>
+        </Box>
     );
 };
 

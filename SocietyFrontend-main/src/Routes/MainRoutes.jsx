@@ -15,9 +15,13 @@ import MemberViewPage from '../pages/Member/MemberView.jsx';
 import MemberEditPage from '../pages/Member/MemberEdit.jsx';
 import NoticePage from '../pages/Notice/Notice.jsx'
 import Login from "../components/Login.jsx";
-import LoanForm from "../pages/Loan/LoanForm.jsx";
+import LoanForm from '../pages/Loan/LoanForm.jsx';
 import PDCDetails from '../pages/Loan/PdcDetail.jsx';
 import LoanView from '../pages/Loan/LoanView.jsx';
+import LoanCreationWizard from '../pages/Loan/LoanCreationWizard.jsx';
+import ExpPdf from '../pages/Exp/ExpPdf.jsx';
+import SuretyReport from '../pages/SuretyReport/SuretyReport.jsx';
+
 
 const MainRoutes = () => {
   return (
@@ -28,6 +32,9 @@ const MainRoutes = () => {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/addmember" element={<MemberDossierForm />} />
         <Route path="/report" element={<MissingMembersTable />} />
+        <Route path="/loan" element={<LoanCreationWizard />}></Route>
+        <Route path="/pdc" element={<PDCDetails />}></Route>
+        <Route path="/view-loan" element={<LoanView />}></Route>
         <Route path="/greeting" element={<FestivalGreetingPage />} />
         <Route path="/member-details/:id" element={<MemberDetails />} />
         <Route path="/member-pdf/:id" element={<MemberPDF />} />
@@ -37,9 +44,8 @@ const MainRoutes = () => {
         <Route path="/member/view/:id" element={<MemberViewPage />} />
         <Route path="/member/edit/:id" element={<MemberEditPage />} />
         <Route path="/notice" element={<NoticePage />} />
-        <Route path="/loan" element={<LoanForm />} />
-        <Route path="/pdc" element={<PDCDetails />} />
-        <Route path="/view-loan" element={<LoanView />} />
+        <Route path="/exppdf/:membershipNumber" element={<ExpPdf />} />
+        <Route path="/surety-report" element={<SuretyReport />} />
       </Route>
     </Routes>
   )

@@ -5,10 +5,9 @@ import * as XLSX from "xlsx";
 // Field mapping (moved from MemberDetails)
 export const FIELD_MAP = {
     // Personal
+    "personalDetails.titleCombinedName": "Member Name",
     "personalDetails.membershipNumber": "Membership No",
     "personalDetails.membershipDate": "Membership Date",
-    "personalDetails.title": "Title",
-    "personalDetails.nameOfMember": "Member Name",
     "personalDetails.nameOfFather": "Father's Name",
     "personalDetails.nameOfMother": "Mother's Name",
     "personalDetails.dateOfBirth": "Date of Birth",
@@ -24,33 +23,33 @@ export const FIELD_MAP = {
     "personalDetails.nameOfSpouse": "Spouse's Name",
     "personalDetails.amountInCredit": "Amount In Credit",
   
+
     // Address
     "addressDetails.permanentAddress": "Permanent Address",
-    "addressDetails.permanentAddressBillPhoto": "Permanent Address Bill Photo",
+   // "addressDetails.permanentAddressBillPhoto": "Permanent Address Bill Photo",
     "addressDetails.currentResidentalAddress": "Current Address",
-    "addressDetails.currentResidentalBillPhoto": "Current Address Bill Photo",
+   // "addressDetails.currentResidentalBillPhoto": "Current Address Bill Photo",
     "addressDetails.previousCurrentAddress": "Previous Addresses",
 
-    // References
-    "referenceDetails": "References",
 
     // Documents - Text Fields
     "documents.panNo": "PAN No",
-    "documents.panNoPhoto": "PAN Card Photo",
+    //"documents.panNoPhoto": "PAN Card Photo",
     "documents.rationCard": "Ration Card",
-    "documents.rationCardPhoto": "Ration Card Photo",
+    //"documents.rationCardPhoto": "Ration Card Photo",
     "documents.drivingLicense": "Driving License",
-    "documents.drivingLicensePhoto": "Driving License Photo",
+   // "documents.drivingLicensePhoto": "Driving License Photo",
     "documents.aadhaarNo": "Aadhaar No",
-    "documents.aadhaarNoPhoto": "Aadhaar Card Photo",
+    //"documents.aadhaarNoPhoto": "Aadhaar Card Photo",
     "documents.voterId": "Voter ID",
-    "documents.voterIdPhoto": "Voter ID Photo",
+    //"documents.voterIdPhoto": "Voter ID Photo",
     "documents.passportNo": "Passport No",
-    "documents.passportNoPhoto": "Passport Photo",
+    //"documents.passportNoPhoto": "Passport Photo",
 
     // Professional - Basic
     "professionalDetails.qualification": "Qualification",
     "professionalDetails.occupation": "Occupation",
+    "professionalDetails.degreeNumber": "Degree Number",
 
     // Professional - Employment Type
     "professionalDetails.inCaseOfServiceGovt": "Government Service",
@@ -80,23 +79,6 @@ export const FIELD_MAP = {
     "familyDetails.familyMember": "Family Member Names",
     "familyDetails.familyMemberNo": "Family Member Phones",
 
-    // Bank
-    "bankDetails.bankName": "Bank Name",
-    "bankDetails.branch": "Bank Branch",
-    "bankDetails.accountNumber": "Account Number",
-    "bankDetails.ifscCode": "IFSC Code",
-
-    // Guarantee - Other Society
-    "guaranteeDetails.whetherMemberHasGivenGuaranteeInOtherSociety": "Guarantee Given in Other Society",
-    "guaranteeDetails.otherSociety": "Other Society Guarantees",
-
-    // Guarantee - Our Society
-    "guaranteeDetails.whetherMemberHasGivenGuaranteeInOurSociety": "Guarantee Given in Our Society",
-    "guaranteeDetails.ourSociety": "Our Society Guarantees",
-
-    // Loans
-    "loanDetails": "Loan Details",
-
     // Nominee
     "nomineeDetails.nomineeName": "Nominee Name",
     "nomineeDetails.relationWithApplicant": "Relation with Applicant",
@@ -111,10 +93,7 @@ export const CATEGORY_MAP = {
     documents: "Documents",
     professionalDetails: "Professional Details",
     familyDetails: "Family Details",
-    bankDetails: "Bank Details",
-    referenceDetails: "Reference Details",
-    guaranteeDetails: "Guarantee Details",
-    loanDetails: "Loan Details"
+    nomineeDetails: "Nominee Details",
 };
 
 // Helper functions
@@ -128,6 +107,7 @@ export const getValueByPath = (obj, path) => {
     }
     return cur;
 };
+
 
 export const isMissing = (value) => {
     if (value === undefined || value === null) return true;
@@ -163,8 +143,57 @@ const formatDate = (dateValue) => {
     }
 };
 
+// Special function to format address objects without keys
+const formatAddressValue = (addressObj) => {
+    if (!addressObj || typeof addressObj !== 'object') return "";
+    
+    try {
+        const addressParts = [];
+        
+        // Add address components in a logical order without field names
+        if (addressObj.flatHouseNo) addressParts.push(addressObj.flatHouseNo);
+        if (addressObj.areaStreetSector) addressParts.push(addressObj.areaStreetSector);
+        if (addressObj.landmark) addressParts.push(addressObj.landmark);
+        if (addressObj.cityTown) addressParts.push(addressObj.cityTown);
+        if (addressObj.district) addressParts.push(addressObj.district);
+        if (addressObj.state) addressParts.push(addressObj.state);
+        if (addressObj.country) addressParts.push(addressObj.country);
+        if (addressObj.pinCode) addressParts.push(`Pincode: ${addressObj.pinCode}`);
+        
+        return addressParts.join(", ");
+    } catch (error) {
+        console.warn("Address formatting error:", error);
+        // Fallback to original formatting if error occurs
+        try {
+            return Object.entries(addressObj).map(([k, v]) => `${k}: ${formatValuePlain(v)}`).join("; ");
+        } catch {
+            return JSON.stringify(addressObj);
+        }
+    }
+};
+
 export const formatValuePlain = (value, fieldKey) => {
     if (value === undefined || value === null) return "";
+
+    if (fieldKey === "personalDetails.titleCombinedName") {
+        const title = getValueByPath(member, "personalDetails.title") || "";
+        const name = getValueByPath(member, "personalDetails.nameOfMember") || "";
+        
+        if (title && name) {
+            return `${title} ${name}`;
+        } else if (name) {
+            return name;
+        } else if (title) {
+            return title;
+        }
+        return "";
+    }
+    
+    // Handle address fields specifically - format without keys
+    if (fieldKey === "addressDetails.permanentAddress" || 
+        fieldKey === "addressDetails.currentResidentalAddress") {
+        return formatAddressValue(value);
+    }
     
     // Handle date fields specifically
     if (fieldKey === "personalDetails.dateOfBirth" || 
@@ -204,12 +233,83 @@ export const formatValuePlain = (value, fieldKey) => {
     return String(value);
 };
 
+
+export const getOccupationType = (member) => {
+    const prof = getValueByPath(member, "professionalDetails") || {};
+
+    const occ = String(prof.occupation || "").toLowerCase();
+    const serviceType = String(prof.inCaseOfService || "").toLowerCase();
+
+    const isPrivate = prof.inCaseOfPrivate === true;
+    const isGovt = prof.inCaseOfServiceGovt === true;
+    const isBusiness = prof.inCaseOfBusiness === true;
+
+    // PRIVATE SERVICE
+    if (
+        occ.includes("private") ||
+        isPrivate ||
+        serviceType.includes("private")
+    ) return "private";
+
+    // GOVERNMENT SERVICE
+    if (
+        occ.includes("government") ||
+        isGovt ||
+        serviceType.includes("government")
+    ) return "government";
+
+    // BUSINESS
+    if (
+        occ.includes("business") ||
+        isBusiness ||
+        serviceType.includes("business")
+    ) return "business";
+
+    return null;
+};
+
+export const filterFieldsByOccupation = (fields, member) => {
+    const type = getOccupationType(member);
+
+    return fields.filter(key => {
+        // Always display basic professional fields
+        if ([
+            "professionalDetails.qualification",
+            "professionalDetails.occupation",
+            "professionalDetails.inCaseOfService",
+        ].includes(key)) {
+            return true;
+        }
+
+        // GOVERNMENT SERVICE FIELDS
+        if (type === "government") {
+            return key.startsWith("professionalDetails.serviceDetails.") 
+                   || key === "professionalDetails.inCaseOfServiceGovt";
+        }
+
+        // PRIVATE SERVICE FIELDS
+        if (type === "private") {
+            return key.startsWith("professionalDetails.serviceDetails.") 
+                   || key === "professionalDetails.inCaseOfPrivate";
+        }
+
+        // BUSINESS FIELDS
+        if (type === "business") {
+            return key.startsWith("professionalDetails.businessDetails.")
+                   || key === "professionalDetails.inCaseOfBusiness";
+        }
+
+        // Default: show all non-professional fields
+        return !key.startsWith("professionalDetails.");
+    });
+};
+
 // Get fields by category and view type
 export const getFieldsByCategory = (member, category, viewType = "all") => {
     const allKeys = Object.keys(FIELD_MAP);
     
     if (category === "all") {
-        return allKeys.filter(key => {
+        const filtered = allKeys.filter(key => {
             const value = getValueByPath(member, key);
             const missing = isMissing(value);
             
@@ -218,24 +318,29 @@ export const getFieldsByCategory = (member, category, viewType = "all") => {
             if (viewType === "missing") return missing;
             return true;
         });
+        
+        // Apply occupation-based filtering for professional fields
+        return filterFieldsByOccupation(filtered, member);
     }
     
     if (category === "filled") {
-        return allKeys.filter(key => {
+        const filtered = allKeys.filter(key => {
             const value = getValueByPath(member, key);
             return !isMissing(value);
         });
+        return filterFieldsByOccupation(filtered, member);
     }
     
     if (category === "missing") {
-        return allKeys.filter(key => {
+        const filtered = allKeys.filter(key => {
             const value = getValueByPath(member, key);
             return isMissing(value);
         });
+        return filterFieldsByOccupation(filtered, member);
     }
     
     // Specific category
-    return allKeys.filter(key => {
+    const filtered = allKeys.filter(key => {
         const value = getValueByPath(member, key);
         const missing = isMissing(value);
         const matchesCategory = key.startsWith(category);
@@ -245,6 +350,13 @@ export const getFieldsByCategory = (member, category, viewType = "all") => {
         if (viewType === "missing") return matchesCategory && missing;
         return matchesCategory;
     });
+
+    // Apply occupation filtering for professional details
+    if (category === "professionalDetails") {
+        return filterFieldsByOccupation(filtered, member);
+    }
+    
+    return filtered;
 };
 
 // Function to load image and convert to base64
@@ -277,7 +389,7 @@ export const generateMemberFieldsPDF = async (member, category, viewType = "all"
     if (!member) return;
     
     const doc = new jsPDF();
-    const memberName = getValueByPath(member, "personalDetails.nameOfMember") || "Member";
+    const memberName = getValueByPath(member, "personalDetails.titleCombinedName") || "Member";
     const membershipNumber = getValueByPath(member, "personalDetails.membershipNumber") || "N/A";
     
     const categoryDisplay = category === "all" ? "All Fields" : 

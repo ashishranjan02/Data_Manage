@@ -3,7 +3,6 @@ import {
     Paper,
     Typography,
     Divider,
-    Grid,
     Table,
     TableBody,
     TableCell,
@@ -21,14 +20,22 @@ import {
     Chip,
     Tooltip,
     Tabs,
-    Tab
+    Tab,
+    Alert,
+    CircularProgress
 } from "@mui/material";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import { Download, ArrowBack, Add } from "@mui/icons-material";
 
-const STORAGE_KEY = "loan_pdc_app_all";
+// Import Redux actions
+import {
+    getAllLoans,
+    getLoansByMemberId,
+    resetLoanState
+} from "../../features/loan/loanSlice";
 
 // Tab Panel Component
 function TabPanel({ children, value, index, ...other }) {
@@ -48,51 +55,177 @@ function TabPanel({ children, value, index, ...other }) {
 const LoanView = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const [data, setData] = useState(null);
-    const [allMembers, setAllMembers] = useState([]);
+    const dispatch = useDispatch();
+
+    // Redux state
+    const {
+        loans,
+        memberLoans,
+        loading,
+        error,
+        success
+    } = useSelector((state) => state.loan);
+
     const [selectedMember, setSelectedMember] = useState("");
-    const [activeTab, setActiveTab] = useState(0); // 0 for Loan, 1 for PDC
+    const [activeTab, setActiveTab] = useState(0);
+    const [allMembers, setAllMembers] = useState([]);
+    const [selectedLoanData, setSelectedLoanData] = useState(null);
 
+    // Fetch all loans on component mount
     useEffect(() => {
-        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+        dispatch(getAllLoans());
+    }, [dispatch]);
 
-        // Get all members for dropdown
-        const members = Object.keys(saved).map(membershipNumber => ({
-            membershipNumber,
-            name: saved[membershipNumber]?.loan?.memberName || "N/A"
-        }));
-        setAllMembers(members);
+    // Extract unique members from loans data based on your API structure
+    useEffect(() => {
+        if (loans && loans.length > 0) {
+            console.log("Loans data:", loans); // Debug log
 
-        // Set initial selected member
-        let membership = location.state?.membershipNumber;
-        if (!membership && members.length > 0) {
-            membership = members[0].membershipNumber;
-        }
+            const uniqueMembers = {};
+            loans.forEach(loan => {
+                const membershipNumber = loan.membershipNumber;
 
-        if (membership) {
-            setSelectedMember(membership);
-            if (saved[membership]) {
-                setData(saved[membership]);
+                if (membershipNumber && !uniqueMembers[membershipNumber]) {
+                    // Handle both cases where memberId might be null or have personalDetails
+                    let memberName = "Unknown Member";
+                    let memberId = null;
+
+                    if (loan.memberId && loan.memberId.personalDetails) {
+                        memberName = loan.memberId.personalDetails.nameOfMember;
+                        memberId = loan.memberId._id;
+                    } else if (loan.memberId) {
+                        memberName = "Member (Details Missing)";
+                        memberId = loan.memberId._id;
+                    } else {
+                        memberName = "External Member";
+                    }
+
+                    uniqueMembers[membershipNumber] = {
+                        memberId: memberId || membershipNumber, // Use membershipNumber as fallback ID
+                        membershipNumber: membershipNumber,
+                        name: memberName
+                    };
+                }
+            });
+
+            const membersArray = Object.values(uniqueMembers);
+            console.log("Extracted members:", membersArray); // Debug log
+            setAllMembers(membersArray);
+
+            // Set initial selected member
+            let initialMembershipNumber = location.state?.membershipNumber;
+            if (!initialMembershipNumber && membersArray.length > 0) {
+                initialMembershipNumber = membersArray[0].membershipNumber;
+            }
+
+            if (initialMembershipNumber) {
+                setSelectedMember(initialMembershipNumber);
+                // For your API, we'll filter locally since we already have all loans
+                filterLoansByMember(initialMembershipNumber);
             }
         }
-    }, [location.state]);
+    }, [loans, location.state]);
 
+    // Filter loans by membership number (since we already have all loans)
+    const filterLoansByMember = (membershipNumber) => {
+        if (!loans || loans.length === 0) return;
+
+        const memberLoans = loans.filter(loan =>
+            loan.membershipNumber === membershipNumber
+        );
+
+        console.log("Filtered loans for member:", membershipNumber, memberLoans); // Debug log
+
+        if (memberLoans.length > 0) {
+            const pdcData = extractPDCFromLoans(memberLoans);
+            console.log("📋 Extracted PDC Data for member:", pdcData); // Debug log
+
+            setSelectedLoanData({
+                loans: memberLoans,
+                pdc: pdcData
+            });
+        } else {
+            setSelectedLoanData(null);
+        }
+    };
+
+    // Handle member selection change
     const handleMemberChange = (event) => {
         const membershipNumber = event.target.value;
         setSelectedMember(membershipNumber);
-
-        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-        if (saved[membershipNumber]) {
-            setData(saved[membershipNumber]);
-        } else {
-            setData(null);
-        }
+        filterLoansByMember(membershipNumber);
     };
+
+    // Extract PDC data from loans based on your API structure
+    const extractPDCFromLoans = (loans) => {
+        const allPDC = [];
+
+        loans.forEach(loan => {
+            console.log(`🔍 Checking loan ${loan._id} for PDC:`, loan.pdcDetails); // Debug log
+
+            if (loan.pdcDetails && loan.pdcDetails.length > 0) {
+                // Check each PDC item for actual data
+                loan.pdcDetails.forEach((pdcItem, pdcIndex) => {
+                    console.log(`📄 PDC Item ${pdcIndex}:`, pdcItem); // Debug log
+
+                    // Check if PDC item has any meaningful data
+                    const hasData =
+                        pdcItem.bankName && pdcItem.bankName.trim() !== '' ||
+                        pdcItem.branchName && pdcItem.branchName.trim() !== '' ||
+                        pdcItem.accountNumber && pdcItem.accountNumber.trim() !== '' ||
+                        pdcItem.ifscCode && pdcItem.ifscCode.trim() !== '' ||
+                        pdcItem.chequeSeries && pdcItem.chequeSeries.trim() !== '';
+
+                    if (hasData) {
+                        const pdcData = {
+                            bankName: pdcItem.bankName || '',
+                            branchName: pdcItem.branchName || '',
+                            accountNumber: pdcItem.accountNumber || '',
+                            ifscCode: pdcItem.ifscCode || '',
+                            chequeSeries: pdcItem.chequeSeries || '',
+                            seriesDate: pdcItem.seriesDate || '',
+                            numberOfCheques: pdcItem.numberOfCheques || 1,
+                            loanId: loan._id,
+                            loanType: loan.typeOfLoan,
+                            // Add these for PDF compatibility
+                            branch: pdcItem.branchName || '', // For PDF
+                            ifsc: pdcItem.ifscCode || '', // For PDF
+                            chequeNumber: pdcItem.chequeSeries || '', // For PDF
+                            chequeDate: pdcItem.seriesDate || '' // For PDF
+                        };
+                        allPDC.push(pdcData);
+                        console.log("✅ Added PDC data:", pdcData); // Debug log
+                    } else {
+                        console.log("❌ Skipping empty PDC item:", pdcItem); // Debug log
+                    }
+                });
+            } else {
+                console.log("❌ No PDC details found in loan:", loan._id); // Debug log
+            }
+        });
+
+        console.log("📋 Final Extracted PDC Data:", allPDC); // Debug log
+        return allPDC;
+    };
+
+    // Add debug effect to monitor selectedLoanData changes
+    useEffect(() => {
+        if (selectedLoanData) {
+            console.log("🎯 Selected Loan Data Updated:", selectedLoanData);
+            console.log("📊 Loans count:", selectedLoanData.loans?.length);
+            console.log("🧾 PDC count:", selectedLoanData.pdc?.length);
+
+            // Debug individual loans
+            selectedLoanData.loans?.forEach((loan, index) => {
+                console.log(`Loan ${index + 1} PDC:`, loan.pdcDetails);
+            });
+        }
+    }, [selectedLoanData]);
 
     const handleAddNewLoan = () => {
         navigate("/loan", {
             state: {
-                prefillMembership: selectedMember || undefined
+                prefillMembershipNumber: selectedMember || undefined
             }
         });
     };
@@ -101,46 +234,36 @@ const LoanView = () => {
         setActiveTab(newValue);
     };
 
-    // Function to format field values
-    const formatFieldValue = (key, value) => {
-        if (typeof value === 'string' && value.includes('T')) {
-            // Format date
-            return new Date(value).toLocaleDateString('en-IN');
-        }
-        if (key.toLowerCase().includes('amount')) {
-            // Format currency
-            return `₹${Number(value).toLocaleString('en-IN')}`;
-        }
-        return value;
-    };
-
-    // Get loan details for table in structured format
+    // Get loan details for table in structured format based on your API
     const getLoanTableData = () => {
-        if (!data || !data.loan) return [];
+        if (!selectedLoanData || !selectedLoanData.loans) return [];
 
-        const loan = data.loan;
-        const tableData = [];
+        return selectedLoanData.loans.map((loan, index) => {
+            // Determine loan-specific fields based on loan type
+            const isLAF = loan.typeOfLoan === "LAF";
+            const date = isLAF ? loan.lafDate : loan.loanDate;
+            const amount = isLAF ? loan.fdrAmount : loan.loanAmount;
+            const purpose = isLAF ? "Loan Against FDR" : loan.purposeOfLoan;
 
-        // Add main loan details
-        if (loan.loanType) {
-            tableData.push({
-                sno: 1,
-                loanType: loan.loanType,
-                membershipNumber: loan.membershipNumber || loan.lafMembershipNumber,
-                amount: loan.loanAmount || loan.lafAmount,
-                date: loan.loanDate || loan.lafDate,
-                purpose: loan.purpose,
+            return {
+                sno: index + 1,
+                id: loan._id,
+                loanType: loan.typeOfLoan,
+                membershipNumber: loan.membershipNumber,
+                memberName: loan.memberId?.personalDetails?.nameOfMember || "External Member",
+                amount: amount,
+                date: date,
+                purpose: purpose,
                 fdrAmount: loan.fdrAmount,
-                fdrScheme: loan.fdrScheme
-            });
-        }
-
-        return tableData;
+                fdrScheme: loan.fdrSchema,
+                status: "Active" // You might want to add status field to your API
+            };
+        });
     };
 
     // Function to download Loan PDF only
     const handleDownloadLoanPDF = () => {
-        if (!data) return;
+        if (!selectedLoanData) return;
 
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
@@ -154,43 +277,84 @@ const LoanView = () => {
         doc.text("LOAN DETAILS", pageWidth / 2, 18, { align: "center" });
 
         // Member Information
+        const firstLoan = selectedLoanData.loans[0];
+        const memberName = firstLoan.memberId?.personalDetails?.nameOfMember || "External Member";
+
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
-        doc.text(`Member: ${data.loan.membershipNumber || data.loan.lafMembershipNumber || 'N/A'}`, 14, 40);
-        doc.text(`Loan Type: ${data.loan.loanType || 'N/A'}`, 14, 47);
+        doc.text(`Member: ${firstLoan.membershipNumber} - ${memberName}`, 14, 40);
+        doc.text(`Total Loans: ${selectedLoanData.loans.length}`, 14, 47);
 
-        // Create loan details table for PDF
+        // Create loan details table for PDF - FIXED VERSION
         const loanTableData = getLoanTableData();
-        const loanData = loanTableData.map((row, index) => [
-            index + 1,
+
+        // Check if we have data to display
+        if (loanTableData.length === 0) {
+            doc.text("No loan data available", 14, 60);
+            doc.save(`Loan_Details_${firstLoan.membershipNumber}_${new Date().getTime()}.pdf`);
+            return;
+        }
+
+        // Prepare table data - ensure all values are strings
+        const loanData = loanTableData.map((row) => [
+            row.sno.toString(),
             row.loanType || 'N/A',
             row.membershipNumber || 'N/A',
-            row.amount ? `${Number(row.amount).toLocaleString('en-IN')}` : 'N/A',
+            row.amount ? `₹${Number(row.amount).toLocaleString('en-IN')}` : 'N/A',
             row.date ? new Date(row.date).toLocaleDateString('en-IN') : 'N/A',
             row.purpose || 'N/A',
-            row.fdrAmount ? `${Number(row.fdrAmount).toLocaleString('en-IN')}` : 'N/A',
+            row.fdrAmount ? `₹${Number(row.fdrAmount).toLocaleString('en-IN')}` : 'N/A',
             row.fdrScheme || 'N/A'
         ]);
 
-        doc.autoTable({
-            startY: 55,
-            head: [[
-                { content: 'S.No', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } },
-                { content: 'Loan Type', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } },
-                { content: 'Membership No', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } },
-                { content: 'Amount', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } },
-                { content: 'Date', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } },
-                { content: 'Purpose', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } },
-                { content: 'FDR Amount', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } },
-                { content: 'FDR Scheme', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } }
-            ]],
-            body: loanData,
-            theme: 'grid',
-            styles: { fontSize: 9, cellPadding: 3 },
-            headStyles: { fillColor: [63, 81, 181] },
-            alternateRowStyles: { fillColor: [245, 245, 245] },
-        });
+        // Define table headers
+        const headers = [
+            { content: 'S.No', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } },
+            { content: 'Loan Type', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } },
+            { content: 'Membership No', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } },
+            { content: 'Amount', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } },
+            { content: 'Date', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } },
+            { content: 'Purpose', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } },
+            { content: 'FDR Amount', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } },
+            { content: 'FDR Scheme', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } }
+        ];
+
+        try {
+            doc.autoTable({
+                startY: 55,
+                head: [headers.map(header => header.content)],
+                body: loanData,
+                theme: 'grid',
+                styles: {
+                    fontSize: 8,
+                    cellPadding: 2,
+                    overflow: 'linebreak',
+                    cellWidth: 'wrap'
+                },
+                headStyles: {
+                    fillColor: [63, 81, 181],
+                    textColor: 255,
+                    fontStyle: 'bold'
+                },
+                alternateRowStyles: { fillColor: [245, 245, 245] },
+                margin: { top: 55 },
+                tableWidth: 'auto',
+                columnStyles: {
+                    0: { cellWidth: 15 }, // S.No
+                    1: { cellWidth: 25 }, // Loan Type
+                    2: { cellWidth: 30 }, // Membership No
+                    3: { cellWidth: 25 }, // Amount
+                    4: { cellWidth: 25 }, // Date
+                    5: { cellWidth: 40 }, // Purpose
+                    6: { cellWidth: 25 }, // FDR Amount
+                    7: { cellWidth: 30 }  // FDR Scheme
+                }
+            });
+        } catch (error) {
+            console.error("PDF generation error:", error);
+            doc.text("Error generating PDF", 14, 60);
+        }
 
         // Footer
         const totalPages = doc.internal.getNumberOfPages();
@@ -206,18 +370,21 @@ const LoanView = () => {
             );
         }
 
-        doc.save(`Loan_Details_${data.loan.membershipNumber || data.loan.lafMembershipNumber}_${new Date().getTime()}.pdf`);
+        doc.save(`Loan_Details_${firstLoan.membershipNumber}_${new Date().getTime()}.pdf`);
     };
 
     // Function to download PDC PDF only
     const handleDownloadPDCPDF = () => {
-        if (!data || !data.pdc || data.pdc.length === 0) return;
+        if (!selectedLoanData || !selectedLoanData.pdc || selectedLoanData.pdc.length === 0) {
+            alert("No PDC data available to download");
+            return;
+        }
 
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
 
         // Header
-        doc.setFillColor(156, 39, 176); // Purple color for PDC
+        doc.setFillColor(156, 39, 176);
         doc.rect(0, 0, pageWidth, 30, 'F');
         doc.setTextColor(255, 255, 255);
         doc.setFontSize(20);
@@ -225,147 +392,71 @@ const LoanView = () => {
         doc.text("PDC DETAILS", pageWidth / 2, 18, { align: "center" });
 
         // Member Information
+        const firstLoan = selectedLoanData.loans[0];
+        const memberName = firstLoan.memberId?.personalDetails?.nameOfMember || "External Member";
+
         doc.setTextColor(0, 0, 0);
         doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
-        doc.text(`Member: ${data.loan.membershipNumber || data.loan.lafMembershipNumber || 'N/A'}`, 14, 40);
-        doc.text(`Total Cheques: ${data.pdc.length}`, 14, 47);
+        doc.text(`Member: ${firstLoan.membershipNumber} - ${memberName}`, 14, 40);
+        doc.text(`Total Cheques: ${selectedLoanData.pdc.length}`, 14, 47);
 
-        const pdcData = data.pdc.map((row, index) => [
-            index + 1,
+        // Prepare PDC data - ensure all values are strings
+        const pdcData = selectedLoanData.pdc.map((row, index) => [
+            (index + 1).toString(),
             row.bankName || 'N/A',
-            row.branch || 'N/A',
-            row.ifsc || 'N/A',
+            row.ifscCode || 'N/A',
             row.accountNumber || 'N/A',
-            row.chequeNumber || 'N/A',
-            row.chequeDate ? new Date(row.chequeDate).toLocaleDateString('en-IN') : 'N/A'
+            row.chequeSeries || 'N/A',
+            row.seriesDate ? new Date(row.seriesDate).toLocaleDateString('en-IN') : 'N/A',
+            row.numberOfCheques?.toString() || '1',
+            row.loanType || 'N/A'
         ]);
 
-        doc.autoTable({
-            startY: 55,
-            head: [[
-                { content: 'S.No', styles: { fillColor: [156, 39, 176], textColor: 255, fontStyle: 'bold' } },
-                { content: 'Bank Name', styles: { fillColor: [156, 39, 176], textColor: 255, fontStyle: 'bold' } },
-                { content: 'Branch', styles: { fillColor: [156, 39, 176], textColor: 255, fontStyle: 'bold' } },
-                { content: 'IFSC', styles: { fillColor: [156, 39, 176], textColor: 255, fontStyle: 'bold' } },
-                { content: 'Account No', styles: { fillColor: [156, 39, 176], textColor: 255, fontStyle: 'bold' } },
-                { content: 'Cheque No', styles: { fillColor: [156, 39, 176], textColor: 255, fontStyle: 'bold' } },
-                { content: 'Cheque Date', styles: { fillColor: [156, 39, 176], textColor: 255, fontStyle: 'bold' } }
-            ]],
-            body: pdcData,
-            theme: 'grid',
-            styles: { fontSize: 9, cellPadding: 2 },
-            headStyles: { fillColor: [156, 39, 176] },
-            alternateRowStyles: { fillColor: [245, 245, 245] },
-        });
-
-        // Footer
-        const totalPages = doc.internal.getNumberOfPages();
-        for (let i = 1; i <= totalPages; i++) {
-            doc.setPage(i);
-            doc.setFontSize(8);
-            doc.setTextColor(150);
-            doc.text(
-                `Generated on ${new Date().toLocaleDateString()} | Page ${i} of ${totalPages}`,
-                pageWidth / 2,
-                doc.internal.pageSize.getHeight() - 10,
-                { align: "center" }
-            );
-        }
-
-        doc.save(`PDC_Details_${data.loan.membershipNumber || data.loan.lafMembershipNumber}_${new Date().getTime()}.pdf`);
-    };
-
-    // Function to download Complete PDF (both Loan and PDC)
-    const handleDownloadCompletePDF = () => {
-        if (!data) return;
-
-        const doc = new jsPDF();
-        const pageWidth = doc.internal.pageSize.getWidth();
-
-        // Header
-        doc.setFillColor(63, 81, 181);
-        doc.rect(0, 0, pageWidth, 30, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(20);
-        doc.setFont("helvetica", "bold");
-        doc.text("LOAN & PDC DETAILS", pageWidth / 2, 18, { align: "center" });
-
-        // Reset text color
-        doc.setTextColor(0, 0, 0);
-
-        // Loan Details Section
-        doc.setFontSize(16);
-        doc.setFont("helvetica", "bold");
-        doc.text("LOAN DETAILS", 14, 45);
-
-        // Create loan details table for PDF
-        const loanTableData = getLoanTableData();
-        const loanData = loanTableData.map((row, index) => [
-            index + 1,
-            row.loanType || 'N/A',
-            row.membershipNumber || 'N/A',
-            row.amount ? `${Number(row.amount).toLocaleString('en-IN')}` : 'N/A',
-            row.date ? new Date(row.date).toLocaleDateString('en-IN') : 'N/A',
-            row.purpose || 'N/A',
-            row.fdrAmount ? `${Number(row.fdrAmount).toLocaleString('en-IN')}` : 'N/A',
-            row.fdrScheme || 'N/A'
-        ]);
-
-        doc.autoTable({
-            startY: 50,
-            head: [[
-                { content: 'S.No', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } },
-                { content: 'Loan Type', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } },
-                { content: 'Membership No', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } },
-                { content: 'Amount', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } },
-                { content: 'Date', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } },
-                { content: 'Purpose', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } },
-                { content: 'FDR Amount', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } },
-                { content: 'FDR Scheme', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } }
-            ]],
-            body: loanData,
-            theme: 'grid',
-            styles: { fontSize: 9, cellPadding: 3 },
-            headStyles: { fillColor: [63, 81, 181] },
-            alternateRowStyles: { fillColor: [245, 245, 245] },
-        });
-
-        // PDC Details Section
-        if (data.pdc && data.pdc.length > 0) {
-            const finalY = doc.lastAutoTable.finalY + 10;
-
-            doc.setFontSize(16);
-            doc.setFont("helvetica", "bold");
-            doc.text("PDC DETAILS", 14, finalY);
-
-            const pdcData = data.pdc.map((row, index) => [
-                index + 1,
-                row.bankName || 'N/A',
-                row.branch || 'N/A',
-                row.ifsc || 'N/A',
-                row.accountNumber || 'N/A',
-                row.chequeNumber || 'N/A',
-                row.chequeDate ? new Date(row.chequeDate).toLocaleDateString('en-IN') : 'N/A'
-            ]);
-
+        try {
             doc.autoTable({
-                startY: finalY + 5,
+                startY: 55,
                 head: [[
-                    { content: 'S.No', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } },
-                    { content: 'Bank Name', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } },
-                    { content: 'Branch', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } },
-                    { content: 'IFSC', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } },
-                    { content: 'Account No', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } },
-                    { content: 'Cheque No', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } },
-                    { content: 'Cheque Date', styles: { fillColor: [63, 81, 181], textColor: 255, fontStyle: 'bold' } }
+                    'S.No',
+                    'Bank Name',
+                    'IFSC Code',
+                    'Account No',
+                    'Cheque Series',
+                    'Series Date',
+                    'No. of Cheques',
+                    'Loan Type'
                 ]],
                 body: pdcData,
                 theme: 'grid',
-                styles: { fontSize: 9, cellPadding: 2 },
-                headStyles: { fillColor: [63, 81, 181] },
+                styles: {
+                    fontSize: 7,
+                    cellPadding: 2,
+                    overflow: 'linebreak',
+                    cellWidth: 'wrap'
+                },
+                headStyles: {
+                    fillColor: [156, 39, 176],
+                    textColor: 255,
+                    fontStyle: 'bold'
+                },
                 alternateRowStyles: { fillColor: [245, 245, 245] },
+                margin: { top: 55 },
+                tableWidth: 'auto',
+                columnStyles: {
+                    0: { cellWidth: 12 }, // S.No
+                    1: { cellWidth: 25 }, // Bank Name
+                    2: { cellWidth: 25 }, // Branch Name
+                    3: { cellWidth: 25 }, // IFSC Code
+                    4: { cellWidth: 30 }, // Account No
+                    5: { cellWidth: 25 }, // Cheque Series
+                    6: { cellWidth: 20 }, // Series Date
+                    7: { cellWidth: 15 }, // No. of Cheques
+                    8: { cellWidth: 20 }  // Loan Type
+                }
             });
+        } catch (error) {
+            console.error("PDC PDF generation error:", error);
+            doc.text("Error generating PDC PDF", 14, 60);
         }
 
         // Footer
@@ -382,11 +473,23 @@ const LoanView = () => {
             );
         }
 
-        doc.save(`Complete_Details_${data.loan.membershipNumber}_${new Date().getTime()}.pdf`);
+        doc.save(`PDC_Details_${firstLoan.membershipNumber}_${new Date().getTime()}.pdf`);
     };
 
     const loanTableData = getLoanTableData();
-    const hasPDC = data?.pdc && data.pdc.length > 0;
+    const hasPDC = selectedLoanData?.pdc && selectedLoanData.pdc.length > 0;
+
+    // Show loading state
+    if (loading) {
+        return (
+            <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+                <CircularProgress size={60} />
+                <Typography variant="h6" sx={{ ml: 2 }}>
+                    Loading loan data...
+                </Typography>
+            </Box>
+        );
+    }
 
     return (
         <Paper elevation={3} sx={{ p: 4, maxWidth: 1400, mx: "auto", mt: 4, mb: 4 }}>
@@ -402,6 +505,20 @@ const LoanView = () => {
 
             <Divider sx={{ mb: 4 }} />
 
+            {/* Error Alert */}
+            {error && (
+                <Alert severity="error" sx={{ mb: 3 }} onClose={() => dispatch(resetLoanState())}>
+                    {error}
+                </Alert>
+            )}
+
+            {/* Debug Info - Remove in production */}
+            {process.env.NODE_ENV === 'development' && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                    Debug: {loans?.length || 0} loans loaded, {allMembers.length} members found, PDC: {hasPDC ? `${selectedLoanData?.pdc?.length} items` : 'None'}
+                </Alert>
+            )}
+
             {/* Member Selection and Actions */}
             <Box sx={{ mb: 4, display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
                 <FormControl sx={{ minWidth: 300 }} size="small">
@@ -411,6 +528,7 @@ const LoanView = () => {
                         value={selectedMember}
                         label="Select Member"
                         onChange={handleMemberChange}
+                        disabled={allMembers.length === 0}
                     >
                         {allMembers.map((member) => (
                             <MenuItem key={member.membershipNumber} value={member.membershipNumber}>
@@ -433,41 +551,27 @@ const LoanView = () => {
                         startIcon={<Add />}
                         onClick={handleAddNewLoan}
                         sx={{ minWidth: 160 }}
+
                     >
                         Add New Loan
                     </Button>
                 </Tooltip>
-
-                <Box sx={{ flexGrow: 1 }} />
-
-                <Tooltip title="Download Complete Report">
-                    <Button
-                        variant="outlined"
-                        startIcon={<Download />}
-                        onClick={handleDownloadCompletePDF}
-                        disabled={!data}
-                    >
-                        Export Complete PDF
-                    </Button>
-                </Tooltip>
             </Box>
 
-            {!data ? (
+            {!selectedLoanData || loanTableData.length === 0 ? (
                 <Card sx={{ textAlign: "center", py: 6, bgcolor: 'grey.50' }}>
                     <CardContent>
                         <Typography variant="h6" color="text.secondary" gutterBottom>
                             No Loan Data Found
                         </Typography>
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                            No loan information available for the selected member
+                            {selectedMember
+                                ? "No loan information available for the selected member"
+                                : allMembers.length === 0
+                                    ? "No loan data available. Please create some loans first."
+                                    : "Please select a member to view loan details"
+                            }
                         </Typography>
-                        <Button
-                            variant="contained"
-                            onClick={handleAddNewLoan}
-                            startIcon={<Add />}
-                        >
-                            Create New Loan
-                        </Button>
                     </CardContent>
                 </Card>
             ) : (
@@ -506,7 +610,7 @@ const LoanView = () => {
                                                 <Typography fontWeight="bold">PDC Details</Typography>
                                                 {hasPDC && (
                                                     <Chip
-                                                        label={data.pdc.length}
+                                                        label={selectedLoanData.pdc.length}
                                                         color="secondary"
                                                         size="small"
                                                     />
@@ -539,6 +643,7 @@ const LoanView = () => {
                                                 <TableCell sx={{ color: 'white', fontWeight: 'bold', width: 80 }}>S.No</TableCell>
                                                 <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Loan Type</TableCell>
                                                 <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Membership No</TableCell>
+                                                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Member Name</TableCell>
                                                 <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Amount</TableCell>
                                                 <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Date</TableCell>
                                                 <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Purpose</TableCell>
@@ -547,9 +652,9 @@ const LoanView = () => {
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
-                                            {loanTableData.map((row, index) => (
+                                            {loanTableData.map((row) => (
                                                 <TableRow
-                                                    key={index}
+                                                    key={row.id}
                                                     sx={{
                                                         '&:nth-of-type(odd)': { bgcolor: 'action.hover' },
                                                         '&:last-child td, &:last-child th': { border: 0 }
@@ -563,14 +668,18 @@ const LoanView = () => {
                                                     <TableCell>
                                                         <Chip
                                                             label={row.loanType || 'N/A'}
-                                                            color="primary"
+                                                            color={row.loanType === 'LAF' ? 'secondary' : 'primary'}
                                                             size="small"
-                                                            variant="outlined"
                                                         />
                                                     </TableCell>
                                                     <TableCell>
                                                         <Typography variant="body2" fontFamily="monospace" fontWeight="medium">
                                                             {row.membershipNumber || 'N/A'}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Typography variant="body2">
+                                                            {row.memberName}
                                                         </Typography>
                                                     </TableCell>
                                                     <TableCell>
@@ -607,107 +716,113 @@ const LoanView = () => {
 
                             {/* PDC Details Tab Panel */}
                             <TabPanel value={activeTab} index={1}>
-                                <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                                    <Tooltip title="Download PDC Details PDF">
-                                        <Button
-                                            variant="contained"
-                                            color="secondary"
-                                            startIcon={<Download />}
-                                            onClick={handleDownloadPDCPDF}
-                                            size="small"
-                                        >
-                                            Download PDC PDF
-                                        </Button>
-                                    </Tooltip>
-                                </Box>
                                 {hasPDC ? (
-                                    <TableContainer>
-                                        <Table sx={{ minWidth: 1000 }}>
-                                            <TableHead sx={{ bgcolor: 'secondary.main' }}>
-                                                <TableRow>
-                                                    <TableCell sx={{ color: 'white', fontWeight: 'bold', width: 80 }}>S.No</TableCell>
-                                                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Bank Name</TableCell>
-                                                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Branch</TableCell>
-                                                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>IFSC Code</TableCell>
-                                                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Account Number</TableCell>
-                                                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Cheque Number</TableCell>
-                                                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Cheque Date</TableCell>
-                                                </TableRow>
-                                            </TableHead>
-                                            <TableBody>
-                                                {data.pdc.map((row, index) => (
-                                                    <TableRow
-                                                        key={index}
-                                                        sx={{
-                                                            '&:nth-of-type(odd)': { bgcolor: 'action.hover' },
-                                                            '&:last-child td, &:last-child th': { border: 0 }
-                                                        }}
-                                                    >
-                                                        <TableCell>
-                                                            <Typography variant="body2" fontWeight="medium" color="primary">
-                                                                {index + 1}
-                                                            </Typography>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Typography variant="body2" fontWeight="medium">
-                                                                {row.bankName || 'N/A'}
-                                                            </Typography>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Typography variant="body2">
-                                                                {row.branch || 'N/A'}
-                                                            </Typography>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Typography variant="body2" fontFamily="monospace">
-                                                                {row.ifsc || 'N/A'}
-                                                            </Typography>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Typography variant="body2" fontFamily="monospace">
-                                                                {row.accountNumber || 'N/A'}
-                                                            </Typography>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Typography variant="body2" fontFamily="monospace">
-                                                                {row.chequeNumber || 'N/A'}
-                                                            </Typography>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Typography variant="body2" fontWeight="medium">
-                                                                {row.chequeDate ? new Date(row.chequeDate).toLocaleDateString('en-IN') : 'N/A'}
-                                                            </Typography>
-                                                        </TableCell>
+                                    <>
+                                        <Box sx={{ mb: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                                            <Tooltip title="Download PDC Details PDF">
+                                                <Button
+                                                    variant="contained"
+                                                    color="secondary"
+                                                    startIcon={<Download />}
+                                                    onClick={handleDownloadPDCPDF}
+                                                    size="small"
+                                                >
+                                                    Download PDC PDF
+                                                </Button>
+                                            </Tooltip>
+                                        </Box>
+                                        <TableContainer>
+                                            <Table sx={{ minWidth: 1000 }}>
+                                                <TableHead sx={{ bgcolor: 'secondary.main' }}>
+                                                    <TableRow>
+                                                        <TableCell sx={{ color: 'white', fontWeight: 'bold', width: 80 }}>S.No</TableCell>
+                                                        <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Bank Name</TableCell>
+                                                        <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Branch Name</TableCell>
+                                                        <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>IFSC Code</TableCell>
+                                                        <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Account No</TableCell>
+                                                        <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Cheque Series</TableCell>
+                                                        <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Series Date</TableCell>
+                                                        <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>No. of Cheques</TableCell>
+                                                        <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Loan Type</TableCell>
                                                     </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
-                                    </TableContainer>
+                                                </TableHead>
+                                                <TableBody>
+                                                    {selectedLoanData.pdc.map((pdc, index) => (
+                                                        <TableRow
+                                                            key={index}
+                                                            sx={{
+                                                                '&:nth-of-type(odd)': { bgcolor: 'action.hover' },
+                                                                '&:last-child td, &:last-child th': { border: 0 }
+                                                            }}
+                                                        >
+                                                            <TableCell>
+                                                                <Typography variant="body2" fontWeight="medium" color="primary">
+                                                                    {index + 1}
+                                                                </Typography>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Typography variant="body2">
+                                                                    {pdc.bankName || 'N/A'}
+                                                                </Typography>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Typography variant="body2">
+                                                                    {pdc.branchName || 'N/A'}
+                                                                </Typography>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Typography variant="body2" fontFamily="monospace">
+                                                                    {pdc.ifscCode || 'N/A'}
+                                                                </Typography>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Typography variant="body2" fontFamily="monospace">
+                                                                    {pdc.accountNumber || 'N/A'}
+                                                                </Typography>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Typography variant="body2" fontWeight="bold" color="secondary">
+                                                                    {pdc.chequeSeries || 'N/A'}
+                                                                </Typography>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Typography variant="body2">
+                                                                    {pdc.seriesDate ? new Date(pdc.seriesDate).toLocaleDateString('en-IN') : 'N/A'}
+                                                                </Typography>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Chip
+                                                                    label={pdc.numberOfCheques || 1}
+                                                                    color="primary"
+                                                                    size="small"
+                                                                />
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Chip
+                                                                    label={pdc.loanType || 'N/A'}
+                                                                    color={pdc.loanType === 'LAF' ? 'secondary' : 'primary'}
+                                                                    size="small"
+                                                                />
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </TableContainer>
+                                    </>
                                 ) : (
                                     <Box sx={{ textAlign: 'center', py: 6 }}>
                                         <Typography variant="h6" color="text.secondary">
                                             No PDC Details Available
                                         </Typography>
                                         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                                            There are no post-dated cheques for this loan.
+                                            There are no post-dated cheques for these loans.
                                         </Typography>
                                     </Box>
                                 )}
                             </TabPanel>
                         </CardContent>
                     </Card>
-
-                    {/* Action Buttons */}
-                    <Box sx={{ mt: 4, display: "flex", justifyContent: "center", gap: 2, flexWrap: "wrap" }}>
-                        <Button
-                            variant="outlined"
-                            startIcon={<ArrowBack />}
-                            onClick={() => navigate("/loan")}
-                        >
-                            Back to Loan Form
-                        </Button>
-
-                    </Box>
                 </>
             )}
         </Paper>

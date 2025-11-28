@@ -1,111 +1,412 @@
 import React, { useState, useEffect } from "react";
-import { Box, Paper, TextField, Button, Typography, Divider, Grid, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@mui/material";
-import { useNavigate, useLocation } from "react-router-dom";
+import {
+    Box,
+    Paper,
+    TextField,
+    Button,
+    Typography,
+    Grid,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    Alert,
+    Card,
+    CardContent,
+    IconButton,
+    Tooltip
+} from "@mui/material";
+import { AddCircle, Delete, AccountBalance, Receipt, AttachMoney } from "@mui/icons-material";
 
-const STORAGE_KEY = "loan_pdc_app_all"; // Combined storage
-const PDC_KEY = "loan_pdc_app_pdc";     // Temporary PDC storage
-const LOAN_KEY = "loan_pdc_app_loan";   // Loan page temp
-
-const PDCDetails = () => {
-    const navigate = useNavigate();
-    const location = useLocation();
-
+const PDCDetails = ({ loanFormData, onPDCSubmit, bankDetails }) => {
     const [numberOfCheques, setNumberOfCheques] = useState("");
+    const [startingChequeNumber, setStartingChequeNumber] = useState("");
     const [rows, setRows] = useState([]);
+    const [submitted, setSubmitted] = useState(false);
+    const [globalAmount, setGlobalAmount] = useState("");
+    const [globalDate, setGlobalDate] = useState("");
 
-    useEffect(() => {
-        const saved = localStorage.getItem(PDC_KEY);
-        if (saved) setRows(JSON.parse(saved).rows || []);
 
-        if (location.state) localStorage.setItem(LOAN_KEY, JSON.stringify(location.state));
-    }, [location.state]);
+    const handleGlobalAmountChange = (value) => {
+        setGlobalAmount(value);
+        setRows(prev => prev.map(r => ({ ...r, amount: value })));
+    };
 
+    const handleGlobalDateChange = (value) => {
+        setGlobalDate(value);
+
+        if (!value) return;
+
+        const baseDate = new Date(value);
+
+        const updatedRows = rows.map((row, index) => {
+            let newDate = new Date(baseDate);
+            newDate.setMonth(baseDate.getMonth() + index);
+
+            // Fix overflow (28/29/30/31)
+            if (newDate.getDate() !== baseDate.getDate()) {
+                newDate.setDate(0);
+            }
+
+            return {
+                ...row,
+                chequeDate: newDate.toISOString().split("T")[0]
+            };
+        });
+
+        setRows(updatedRows);
+    };
+
+    // ------------------------------
+    // ✅ FUNCTION: Generate next alphanumeric cheque number
+    // ------------------------------
+    const generateNextChequeNumber = (cheque) => {
+        const match = cheque.match(/(\D*)(\d+)/);
+
+        if (!match) return cheque;
+
+        const prefix = match[1];
+        const numPart = match[2];
+
+        const nextNum = String(parseInt(numPart) + 1).padStart(numPart.length, '0');
+
+        return prefix + nextNum;
+    };
+
+    // ------------------------------
+    // ✅ Generate full series
+    // ------------------------------
     const generateSeries = () => {
         const total = Number(numberOfCheques);
-        if (!total || total <= 0) return alert("Enter number of cheques");
+        let currentNum = startingChequeNumber.trim();
 
-        const emptyRows = Array.from({ length: total }, () => ({
-            bankName: "", branch: "", ifsc: "", accountNumber: "", chequeNumber: "", chequeDate: ""
-        }));
+        if (!total || total <= 0) {
+            alert("Please enter a valid number of cheques");
+            return;
+        }
 
-        setRows(emptyRows);
-        localStorage.setItem(PDC_KEY, JSON.stringify({ rows: emptyRows }));
+        if (!currentNum) {
+            alert("Please enter valid starting cheque number");
+            return;
+        }
+
+        const emptyRows = [];
+
+        for (let i = 0; i < total; i++) {
+            emptyRows.push({
+                id: Date.now() + i,
+                bankName: bankDetails?.bankName || "",
+                branchName: bankDetails?.branchName || "",
+                accountNumber: bankDetails?.accountNumber || "",
+                ifscCode: bankDetails?.ifscCode || "",
+                chequeNumber: currentNum,
+                chequeDate: "",
+                amount: "",
+                seriesDate: new Date().toISOString().split("T")[0],
+            });
+
+            currentNum = generateNextChequeNumber(currentNum);
+        }
+
+        setRows(prev => [...prev, ...emptyRows]);
+        setStartingChequeNumber("");
+        setNumberOfCheques("");
     };
 
-    const updateRow = (index, field, value) => {
-        setRows(prev => {
-            const updated = [...prev];
-            updated[index][field] = value;
-            localStorage.setItem(PDC_KEY, JSON.stringify({ rows: updated }));
-            return updated;
-        });
+    // ------------------------------
+    // Update row
+    // ------------------------------
+    const updateRow = (id, field, value) => {
+        const updated = rows.map(row =>
+            row.id === id ? { ...row, [field]: value } : row
+        );
+        setRows(updated);
     };
 
+    // ------------------------------
+    // Remove row
+    // ------------------------------
+    const removeRow = (id) => {
+        const updatedRows = rows.filter(row => row.id !== id);
+        setRows(updatedRows);
+        setNumberOfCheques(updatedRows.length);
+    };
+
+    // ------------------------------
+    // Get END number for preview
+    // ------------------------------
+    const getEndNumber = () => {
+        if (!startingChequeNumber || !numberOfCheques) return "";
+
+        let current = startingChequeNumber.trim();
+        for (let i = 1; i < Number(numberOfCheques); i++) {
+            current = generateNextChequeNumber(current);
+        }
+        return current;
+    };
+
+    // Convert yyyy-mm-dd → dd/mm/yyyy
+    const formatToDDMMYYYY = (dateStr) => {
+        if (!dateStr) return "";
+        const [year, month, day] = dateStr.split("-");
+        return `${day}/${month}/${year}`;
+    };
+
+
+    // ------------------------------
+    // Submit Handler
+    // ------------------------------
     const handleSubmit = () => {
-        const loanData = JSON.parse(localStorage.getItem(LOAN_KEY));
-        if (!loanData) return alert("Loan data not found!");
-        const membership = loanData.membershipNumber;
+        if (rows.length === 0) {
+            alert("Please add at least one cheque detail");
+            return;
+        }
 
-        const savedLoans = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-        savedLoans[membership] = { loan: loanData, pdc: rows };
+        const incomplete = rows.some(row =>
+            !row.bankName ||
+            !row.branchName ||
+            !row.ifscCode ||
+            !row.accountNumber ||
+            !row.chequeNumber ||
+            !row.chequeDate ||
+            !row.amount
+        );
 
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(savedLoans));
-        alert("PDC Details Submitted Successfully!");
-        navigate("/view-loan", { state: { membershipNumber: membership } });
+        if (incomplete) {
+            alert("Please fill all PDC details for each cheque");
+            return;
+        }
+
+        setSubmitted(true);
+
+        const pdcPayload = {
+            numberOfCheques: rows.length,
+            chequeDetails: rows.map(row => ({
+                bankName: row.bankName,
+                branchName: row.branchName,
+                accountNumber: row.accountNumber,
+                ifscCode: row.ifscCode,
+                chequeNumber: row.chequeNumber,
+                chequeDate: row.chequeDate,
+                amount: row.amount,
+                seriesDate: row.seriesDate
+            }))
+        };
+
+        console.log("📋 PDC Payload:", pdcPayload);
+        onPDCSubmit(pdcPayload);
     };
+
+    // ------------------------------
+    // Total amount
+    // ------------------------------
+    const totalAmount = rows.reduce((sum, row) => {
+        const amount = parseFloat(row.amount) || 0;
+        return sum + amount;
+    }, 0);
 
     return (
-        <Paper elevation={3} sx={{ p: 4 }}>
-            <Typography variant="h4" textAlign="center" fontWeight="bold" mb={2}>PDC DETAILS</Typography>
-            <Divider sx={{ mb: 3 }} />
+        <Box>
+            {/* Header */}
+            <Card sx={{ mb: 3, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+                <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                    <Receipt sx={{ fontSize: 40, mb: 1 }} />
+                    <Typography variant="h4" fontWeight="bold" gutterBottom>
+                        PDC DETAILS
+                    </Typography>
+                    <Typography variant="h6">
+                        Post Dated Cheque Information
+                    </Typography>
+                </CardContent>
+            </Card>
 
-            <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                    <TextField fullWidth label="Number of Cheques" type="number" size="small" value={numberOfCheques} onChange={e => setNumberOfCheques(e.target.value)} />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                    <Button variant="contained" fullWidth sx={{ height: 40 }} onClick={generateSeries}>Generate Rows</Button>
-                </Grid>
-            </Grid>
-
-            {rows.length > 0 && (
-                <TableContainer component={Paper} sx={{ mt: 3 }}>
-                    <Table>
-                        <TableHead sx={{ background: "#f5f5f5" }}>
-                            <TableRow>
-                                <TableCell>S.No</TableCell>
-                                <TableCell>Bank Name</TableCell>
-                                <TableCell>Branch</TableCell>
-                                <TableCell>IFSC</TableCell>
-                                <TableCell>Account No</TableCell>
-                                <TableCell>Cheque Number</TableCell>
-                                <TableCell>Cheque Date</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {rows.map((r, i) => (
-                                <TableRow key={i}>
-                                    <TableCell>{i + 1}</TableCell>
-                                    {["bankName", "branch", "ifsc", "accountNumber", "chequeNumber"].map(field => (
-                                        <TableCell key={field}>
-                                            <TextField size="small" value={r[field]} onChange={e => updateRow(i, field, e.target.value)} />
-                                        </TableCell>
-                                    ))}
-                                    <TableCell>
-                                        <TextField type="date" size="small" value={r.chequeDate} onChange={e => updateRow(i, "chequeDate", e.target.value)} />
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
+            {submitted && (
+                <Alert severity="success" sx={{ mb: 2 }}>
+                    PDC Details Submitted Successfully!
+                </Alert>
             )}
 
-            <Box mt={4} textAlign="center">
-                <Button variant="outlined" sx={{ mr: 2 }} onClick={() => navigate("/loan")}>Back</Button>
-                <Button variant="contained" color="success" onClick={handleSubmit}>Submit</Button>
-            </Box>
-        </Paper>
+            {/* Cheque Series Generator */}
+            <Card sx={{ mb: 3, p: 3, border: '2px dashed #e0e0e0' }}>
+                <Typography variant="h6" fontWeight="bold" gutterBottom color="primary">
+                    <AddCircle sx={{ mr: 1 }} /> Generate Cheque Series
+                </Typography>
+
+                <Grid container spacing={2}>
+                    <Grid size={{ xs: 12, md: 3 }}>
+                        <TextField
+                            fullWidth
+                            label="Starting Cheque Number"
+                            size="small"
+                            value={startingChequeNumber}
+                            onChange={e => setStartingChequeNumber(e.target.value)}
+                            placeholder="e.g. CHQUE001"
+                        />
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 3 }}>
+                        <TextField
+                            fullWidth
+                            label="Number of Cheques"
+                            type="number"
+                            size="small"
+                            value={numberOfCheques}
+                            onChange={e => setNumberOfCheques(e.target.value)}
+                        />
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 6 }}>
+                        <Button
+                            variant="contained"
+                            fullWidth
+                            sx={{ height: 40 }}
+                            onClick={generateSeries}
+                            startIcon={<AddCircle />}
+                        >
+                            Generate Cheque Series
+                        </Button>
+                    </Grid>
+                </Grid>
+
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    {startingChequeNumber && numberOfCheques && (
+                        <> Example: {startingChequeNumber} to {getEndNumber()} </>
+                    )}
+                </Typography>
+            </Card>
+
+            {/* Table */}
+            {rows.length > 0 && (
+                <Card sx={{ mb: 3 }}>
+                    <CardContent>
+                        <Box display="flex" justifyContent="space-between" mb={2}>
+                            <Typography variant="h6" fontWeight="bold" color="primary">
+                                Cheque Details ({rows.length})
+                            </Typography>
+                            <Typography variant="body2">
+                                Series: {rows[0]?.chequeNumber} → {rows[rows.length - 1]?.chequeNumber}
+                            </Typography>
+                        </Box>
+
+                        <TableContainer component={Paper}>
+                            <Table>
+                                <TableHead sx={{ background: "#2196F3" }}>
+                                    <TableRow>
+                                        <TableCell sx={{ color: 'white' }}>#</TableCell>
+                                        <TableCell sx={{ color: 'white' }}>Cheque Number</TableCell>
+                                        <TableCell sx={{ color: 'white' }}>Bank</TableCell>
+                                        <TableCell sx={{ color: 'white' }}>Branch</TableCell>
+                                        <TableCell sx={{ color: 'white' }}>IFSC</TableCell>
+                                        <TableCell sx={{ color: 'white' }}>Account</TableCell>
+                                        <TableCell sx={{ color: 'white' }}>Amount</TableCell>
+                                        <TableCell sx={{ color: 'white' }}>Date</TableCell>
+                                        <TableCell sx={{ color: 'white' }}>Action</TableCell>
+                                    </TableRow>
+                                </TableHead>
+
+                                <TableBody>
+                                    {rows.map((row, index) => (
+                                        <TableRow key={row.id}>
+                                            <TableCell>{index + 1}</TableCell>
+
+                                            <TableCell>
+                                                <TextField
+                                                    size="small"
+                                                    value={row.chequeNumber}
+                                                    InputProps={{ readOnly: true }}
+                                                    sx={{ width: 150 }}
+                                                />
+                                            </TableCell>
+
+                                            <TableCell>
+                                                <TextField
+                                                    size="small"
+                                                    value={row.bankName}
+                                                    onChange={e => updateRow(row.id, "bankName", e.target.value)}
+                                                    sx={{ width: 150 }}
+                                                />
+                                            </TableCell>
+
+                                            <TableCell>
+                                                <TextField
+                                                    size="small"
+                                                    value={row.branchName}
+                                                    onChange={e => updateRow(row.id, "branchName", e.target.value)}
+                                                    sx={{ width: 150 }}
+                                                />
+                                            </TableCell>
+
+                                            <TableCell>
+                                                <TextField
+                                                    size="small"
+                                                    value={row.ifscCode}
+                                                    onChange={e => updateRow(row.id, "ifscCode", e.target.value)}
+                                                    sx={{ width: 150 }}
+                                                />
+                                            </TableCell>
+
+                                            <TableCell>
+                                                <TextField
+                                                    size="small"
+                                                    value={row.accountNumber}
+                                                    onChange={e => updateRow(row.id, "accountNumber", e.target.value)}
+                                                    sx={{ width: 150 }}
+                                                />
+                                            </TableCell>
+
+                                            <TableCell>
+                                                <TextField
+                                                    fullWidth
+                                                    label="Amount (same for all)"
+                                                    type="number"
+                                                    value={globalAmount}
+                                                    onChange={e => handleGlobalAmountChange(e.target.value)}
+                                                    sx={{ width: 150 }}
+                                                />
+                                            </TableCell>
+
+                                            <TableCell>
+                                                <TextField
+                                                    size="small"
+                                                    type="date"
+                                                    value={row.chequeDate || ""}
+                                                    onChange={(e) => handleGlobalDateChange(e.target.value)}
+                                                    InputLabelProps={{ shrink: true }}
+                                                    sx={{ width: 150 }}
+                                                />
+
+                                            </TableCell>
+
+                                            <TableCell>
+                                                <IconButton onClick={() => removeRow(row.id)} color="error">
+                                                    <Delete />
+                                                </IconButton>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+
+                        {/* Summary */}
+                        <Box mt={2}>
+                            <Typography fontWeight="bold">Total Amount: ₹{totalAmount}</Typography>
+                        </Box>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Submit */}
+            {rows.length > 0 && (
+                <Box textAlign="center" mt={4}>
+                    <Button variant="contained" color="success" size="large" onClick={handleSubmit}>
+                        Submit PDC Details & Continue
+                    </Button>
+                </Box>
+            )}
+        </Box>
     );
 };
 

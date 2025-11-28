@@ -12,25 +12,25 @@ import {
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import EventSeatIcon from "@mui/icons-material/EventSeat";
 import AssessmentIcon from "@mui/icons-material/Assessment";
-import RealEstateAgentIcon from '@mui/icons-material/RealEstateAgent';
 import { Link } from "react-router-dom";
 import { People } from "@mui/icons-material";
+import RealEstateAgentIcon from '@mui/icons-material/RealEstateAgent';
 
 const Sidebar = () => {
     const menuItems = [
         { label: "Dashboard", route: "/dashboard", icon: <DashboardIcon /> },
         { label: "Member", route: "/memberdetail", icon: <People /> },
         { label: "Report", route: "/report", icon: <AssessmentIcon /> },
-        { label: "Greeting", route: "/greeting", icon: <EventSeatIcon /> },
-        { label: "Guarantor", route: "/guarantorList", icon: <People /> },
-        { label: "Notice", route: "/notice", icon: <AssessmentIcon /> },
         { label: "Loan", route: "/view-loan", icon: <RealEstateAgentIcon /> },
+        { label: "Surety Report", route: "/surety-report", icon: <AssessmentIcon /> },
+        { label: "Greeting", route: "/greeting", icon: <EventSeatIcon /> },
+        { label: "Notice", route: "/notice", icon: <AssessmentIcon /> },
     ];
 
     return (
         <Box
             sx={{
-                width: 240,
+                width: 220,
                 height: "100vh",
                 bgcolor: "#f9fbfd",
                 borderRight: "1px solid #e0e0e0",
