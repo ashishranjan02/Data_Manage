@@ -42,9 +42,12 @@ import {
 
 export const FIELD_MAP = {
     // Personal Details
+    "personalDetails.title": "Title",
     "personalDetails.nameOfMember": "Member Name",
     "personalDetails.membershipNumber": "Membership No",
+    // "personalDetails.fatherTitle": "Father's Title",
     "personalDetails.nameOfFather": "Father's Name",
+    // "personalDetails.motherTitle" : "Mother's Title",
     "personalDetails.nameOfMother": "Mother's Name",
     "personalDetails.dateOfBirth": "Date of Birth",
     "personalDetails.ageInYears": "Age (Years)",
