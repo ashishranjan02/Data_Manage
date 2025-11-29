@@ -69,7 +69,6 @@ export const FIELD_MAP = {
     "professionalDetails.businessDetails.gstCertificate": "GST Certificate",
 
     // Family
-    "familyDetails.familyMembersMemberOfSociety": "Family Members in Society",
     "familyDetails.familyMember": "Family Member Names",
     "familyDetails.familyMemberNo": "Family MemberShip Number",
     "familyDetails.relationWithApplicant":"Relation With Applicant",
@@ -90,8 +89,6 @@ export const CATEGORY_MAP = {
     familyDetails: "Family Details",
     nomineeDetails: "Nominee Details",
 };
-
-// Helper functions
 
 // Format date to DD/MM/YYYY
 const formatDate = (dateValue) => {
@@ -345,8 +342,6 @@ export const filterFieldsByOccupation = (fields, member) => {
     });
 };
 
-// Get fields by category and view type
-
 // Get fields by category and view type with conditional logic
 export const getFieldsByCategory = (member, category, viewType = "all") => {
     const allKeys = Object.keys(FIELD_MAP);
@@ -437,6 +432,33 @@ const loadImageAsBase64 = (url) => {
     });
 };
 
+const getFamilyMembersTableData = (member) => {
+    const familyMembers = getValueByPath(member, "familyDetails.familyMember");
+    const familyMemberNos = getValueByPath(member, "familyDetails.familyMemberNo");
+    const relations = getValueByPath(member, "familyDetails.relationWithApplicant");
+
+    // If no family members data exists
+    if (!familyMembers && !familyMemberNos && !relations) {
+        return [];
+    }
+
+    let tableData = [];
+
+    if (Array.isArray(familyMembers) && Array.isArray(familyMemberNos) && Array.isArray(relations)) {
+        const maxLength = Math.max(familyMembers.length, familyMemberNos.length, relations.length);
+        for (let i = 0; i < maxLength; i++) {
+            const name = familyMembers[i] || "—";
+            const memberNo = familyMemberNos[i] || "—";
+            const relation = relations[i] || "—";
+            
+            if (name !== "—" || memberNo !== "—" || relation !== "—") {
+                tableData.push([i + 1, name, memberNo, relation]);
+            }
+        }
+    }
+    return tableData;
+};
+
 // Generate PDF
 export const generateMemberFieldsPDF = async (member, category, viewType = "all") => {
     if (!member) return;
@@ -476,6 +498,53 @@ export const generateMemberFieldsPDF = async (member, category, viewType = "all"
         doc.setFont(undefined, 'bold');
         doc.setTextColor(0, 0, 0);
         doc.text(categoryName, 14, startY);
+            
+        // SPECIAL HANDLING FOR FAMILY DETAILS - Show as table
+        if (categoryKey === "familyDetails") {
+            const familyTableData = getFamilyMembersTableData(member);
+            
+            if (familyTableData.length > 0) {
+                autoTable(doc, {
+                    startY: startY + 5,
+                    head: [["S. No", "Family Member's Name", "Family Membership Number", "Relation With Member"]],
+                    body: familyTableData,
+                    styles: { 
+                        fontSize: 9, 
+                        cellPadding: 3,
+                        textColor: [0, 0, 0],
+                        fontStyle: 'normal'
+                    },
+                    headStyles: { 
+                        fillColor: [25, 118, 210], 
+                        textColor: 255,
+                        fontSize: 10,
+                        fontStyle: 'bold'
+                    },
+                    bodyStyles: {
+                        textColor: [0, 0, 0]
+                    },
+                    alternateRowStyles: {
+                        fillColor: [245, 245, 245],
+                        textColor: [0, 0, 0]
+                    },
+                    columnStyles: {
+                        0: { cellWidth: 12, textColor: [0, 0, 0] },
+                        1: { cellWidth: 'auto', textColor: [0, 0, 0] },
+                        2: { cellWidth: 'auto', textColor: [0, 0, 0] },
+                        3: { cellWidth: 'auto', textColor: [0, 0, 0] }
+                    },
+                    theme: 'grid',
+                });
+            } else {
+                // No family members data available
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'normal');
+                doc.text("No family members data available", 14, startY + 10);
+                return startY + 15;
+            }
+            
+            return doc.lastAutoTable.finalY + 10;
+        }
         
         // Prepare table data with serial numbers starting from 1 for each category
         const body = fields.map((key, idx) => {
