@@ -24,6 +24,8 @@ import AddressForm from "../components/form/AddressForm";
 import IdentityVerificationForm from "../components/form/IdentityVerificationForm";
 import ProfessionalFamilyForm from "../components/form/ProfessionalFamilyForm";
 import RemarksForm from "../components/form/RemarksForm";
+import FinancialDetailsForm from "../components/form/FinancialDetails";
+import BankGuaranteeForm from "../components/form/BankGuaranteeForm"
 import { useDispatch, useSelector } from "react-redux";
 import { createMember, clearMemberState } from "../features/member/memberSlice";
 
@@ -57,9 +59,16 @@ const MemberDossierForm = () => {
       religion: "",
       maritalStatus: "",
       caste: "",
-      phoneNo: "",
+      phoneNo1: "",
+      phoneNo2: "",
+      whatsapp: "",
       alternatePhoneNo: "",
-      emailId: "",
+      emailId1: "",
+      emailId2: "",
+      emailId3: "",
+      landlineNo: "",
+      landlineOffice: "",
+      civilScore: "",
     },
 
     Address: {
@@ -142,6 +151,7 @@ const MemberDossierForm = () => {
       qualification: "",
       occupation: "",
       qualificationRemark: "",
+      degreeNumber: "",
       familyMemberMemberOfSociety: false,
       familyMembers: [
         {
@@ -151,9 +161,17 @@ const MemberDossierForm = () => {
       ],
     },
 
+    bankDetails: [{
+      bankName: "",
+      branch: "",
+      accountNumber: "",
+      ifscCode: "",
+    }],
+
     nomineeDetails: {
       nomineeName: "",
       relationWithApplicant: "",
+      nomineeMobileNo: "",
       introduceBy: "",
       memberShipNo: "",
     },
@@ -165,6 +183,13 @@ const MemberDossierForm = () => {
         loanDate: "",
       },
     ],
+
+
+    financialDetails: [{
+      shareCapital: "",
+      optionalDeposit: "",
+      compulsory: ""
+    }],
   };
 
   const [formData, setFormData] = useState(initialFormData);
@@ -174,7 +199,9 @@ const MemberDossierForm = () => {
     { label: "Address & Contact", icon: "🏠" },
     { label: "Identity Proof", icon: "🆔" },
     { label: "Professional & Family", icon: "💼" },
-    { label: "Remarks", icon: "📝" }
+    { label: "Bank Details", icon: "💼" },
+    { label: "Remarks", icon: "📝" },
+    { label: "Financial Details", icon: "💰" }
   ];
 
   const handleChange = useCallback((section, field, value) => {
@@ -368,6 +395,8 @@ const MemberDossierForm = () => {
           "professionalDetails[qualification]",
           pro.qualification
         );
+      if (pro.degreeNumber)
+        formDataToSend.append("professionalDetails[degreeNumber]", pro.degreeNumber);
 
       if (pro.occupation)
         formDataToSend.append("professionalDetails[occupation]", pro.occupation);
@@ -436,12 +465,21 @@ const MemberDossierForm = () => {
    FAMILY DETAILS (Professional & Family)
 ----------------------------------------- */
 
-// Send familyMember, familyMemberNo, relationWithApplicant
-values.professionalDetails.familyMembers.forEach((item, index) => {
-    formDataToSend.append(`familyDetails[familyMember][${index}]`, item.name);
-    formDataToSend.append(`familyDetails[familyMemberNo][${index}]`, item.membershipNo);
-    formDataToSend.append(`familyDetails[relationWithApplicant][${index}]`, item.relationWithApplicant);
-});
+      // Send familyMember, familyMemberNo, relationWithApplicant
+      values.professionalDetails.familyMembers.forEach((item, index) => {
+        formDataToSend.append(`familyDetails[familyMember][${index}]`, item.name);
+        formDataToSend.append(`familyDetails[familyMemberNo][${index}]`, item.membershipNo);
+        formDataToSend.append(`familyDetails[relationWithApplicant][${index}]`, item.relationWithApplicant);
+      });
+
+      // --- BANK DETAILS ---
+      (values.bankDetails || []).forEach((bank, index) => {
+        Object.entries(bank || {}).forEach(([key, value]) => {
+          if (value !== null && value !== undefined && value !== "") {
+            formDataToSend.append(`bankDetails[${key}]`, value.toString());
+          }
+        });
+      });
 
 
       /* -----------------------------------------
@@ -468,6 +506,23 @@ values.professionalDetails.familyMembers.forEach((item, index) => {
             remark.loanDate
           );
       });
+
+      /* -----------------------------------------
+         FINANCIAL DETAILS
+      ----------------------------------------- */
+      const financialData = values.financialDetails?.[0] || {};
+
+      if (financialData.shareCapital) {
+        formDataToSend.append("financialDetails[shareCapital]", financialData.shareCapital);
+      }
+
+      if (financialData.optionalDeposit) {
+        formDataToSend.append("financialDetails[optionalDeposit]", financialData.optionalDeposit);
+      }
+
+      if (financialData.compulsory) {
+        formDataToSend.append("financialDetails[compulsory]", financialData.compulsory);
+      }
 
       /* -----------------------------------------
          REFERENCES
@@ -559,7 +614,11 @@ values.professionalDetails.familyMembers.forEach((item, index) => {
       case 3:
         return <ProfessionalFamilyForm {...commonProps} />;
       case 4:
+        return <BankGuaranteeForm {...commonProps} />;
+      case 5:
         return <RemarksForm {...commonProps} />;
+      case 6:
+        return <FinancialDetailsForm {...commonProps} />;
       default:
         return null;
     }

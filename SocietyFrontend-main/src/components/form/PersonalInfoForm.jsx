@@ -6,18 +6,23 @@ import SectionHeader from "../../layout/SectionHeader";
 import Autocomplete from "@mui/material/Autocomplete";
 
 const PersonalInfoForm = ({ formData, handleChange }) => {
-  const personalInfo = formData.personalInformation;
+  const personalInfo = formData.personalDetails || formData.personalInformation || {};
+  const creditInfo = formData.creditDetails || formData.creditInformation || {};
   const [dobError, setDobError] = useState("");
   const [civilScoreText, setCivilScoreText] = useState("");
   const theme = useTheme();
 
   const handleFieldChange = (field, value) => {
-    handleChange("personalInformation", field, value);
+    if (formData.personalDetails) {
+      handleChange("personalDetails", field, value);
+    } else {
+      handleChange("personalInformation", field, value);
+    }
   };
 
   // Civil Score logic
   const handleCivilScoreChange = (score) => {
-    handleFieldChange("civilScore", score);
+    handleChange("creditDetails", "cibilScore", score);
 
     if (!score) {
       setCivilScoreText("");
@@ -30,12 +35,16 @@ const PersonalInfoForm = ({ formData, handleChange }) => {
       return;
     }
 
-    if (numericScore >= 0 && numericScore <= 550) {
+    if (numericScore >= 300 && numericScore <= 550) {
       setCivilScoreText("Poor");
-    } else if (numericScore >= 41 && numericScore <= 650) {
+    } else if (numericScore >= 551 && numericScore <= 650) {
+      setCivilScoreText("Average");
+    } else if (numericScore >= 651 && numericScore <= 750) {
       setCivilScoreText("Good");
-    } else if (numericScore >= 71 && numericScore <= 750) {
+    } else if (numericScore >= 751 && numericScore <= 900) {
       setCivilScoreText("Excellent");
+    } else {
+      setCivilScoreText("Invalid Score");
     }
   };
 
@@ -66,7 +75,7 @@ const PersonalInfoForm = ({ formData, handleChange }) => {
             borderRadius: 2,
             backgroundColor: alpha(theme.palette.background.paper, 0.8),
             transition: 'all 0.2s ease-in-out',
-            height: '56px', // Fixed height
+            height: '56px',
             '&:hover': {
               backgroundColor: alpha(theme.palette.background.paper, 0.9),
             },
@@ -76,7 +85,7 @@ const PersonalInfoForm = ({ formData, handleChange }) => {
             }
           },
           '& .MuiAutocomplete-input': {
-            padding: '8.5px 4px 8.5px 6px !important', // Match textfield padding
+            padding: '8.5px 4px 8.5px 6px !important',
           }
         }}
         renderInput={(params) => (
@@ -89,7 +98,7 @@ const PersonalInfoForm = ({ formData, handleChange }) => {
                 fontWeight: 500,
               },
               '& .MuiInputBase-root': {
-                height: '56px', // Consistent height
+                height: '56px',
               }
             }}
           />
@@ -104,7 +113,7 @@ const PersonalInfoForm = ({ formData, handleChange }) => {
 
     if (!dateString) {
       handleFieldChange("ageInYears", "");
-      handleFieldChange("isMinor", "");
+      handleFieldChange("minor", "");
       setDobError("");
       return;
     }
@@ -125,20 +134,20 @@ const PersonalInfoForm = ({ formData, handleChange }) => {
       months += 12;
     }
 
-    const isMinor = years < 18 ? "Yes" : "No";
+    const isMinor = years < 18 ? true : false;
     setDobError("");
 
     handleFieldChange("ageInYears", `${years} years, ${months} months`);
-    handleFieldChange("isMinor", isMinor);
+    handleFieldChange("minor", isMinor);
   };
 
-  // Common text field styles
+
   const textFieldStyles = {
     '& .MuiOutlinedInput-root': {
       borderRadius: 2,
       backgroundColor: alpha(theme.palette.background.paper, 0.8),
       transition: 'all 0.2s ease-in-out',
-      height: '56px', // Fixed height for all text fields
+      height: '56px',
       '&:hover': {
         backgroundColor: alpha(theme.palette.background.paper, 0.9),
       },
@@ -212,7 +221,7 @@ const PersonalInfoForm = ({ formData, handleChange }) => {
 
         <Grid container spacing={3}>
 
-          {/* Membership Number */}
+
           <Grid size={{ xs: 12, md: 3 }}>
             <StyledTextField
               label="Membership No."
@@ -225,7 +234,7 @@ const PersonalInfoForm = ({ formData, handleChange }) => {
             />
           </Grid>
 
-          {/* Membership Date */}
+
           <Grid size={{ xs: 12, md: 3 }}>
             <StyledTextField
               label="Membership Date"
@@ -240,35 +249,145 @@ const PersonalInfoForm = ({ formData, handleChange }) => {
             />
           </Grid>
 
-          {/* Credit Amount */}
+          <Grid size={{ xs: 12, md: 2 }}>
+            <Box sx={{ position: 'relative' }}>
+              <ComboBox
+                label="Title"
+                fieldName="title"
+                value={personalInfo.title}
+                options={["Mr", "Mrs", "Miss", "Dr", "CA", "Advocate"]}
+              />
+            </Box>
+          </Grid>
+
+
+          <Grid size={{ xs: 12, md: 4 }}>
+            <StyledTextField
+              label="Name of Member"
+              name="nameOfMember"
+              value={personalInfo.nameOfMember || ""}
+              onChange={(e) => handleFieldChange("nameOfMember", e.target.value)}
+              sx={textFieldStyles}
+            />
+          </Grid>
+
+
+          <Grid size={{ xs: 12, md: 2 }}>
+            <ComboBox
+              label="Father Title"
+              fieldName="fatherTitle"
+              value={personalInfo.fatherTitle}
+              options={["Mr", "Dr", "CA", "Advocate"]}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <StyledTextField
+              label="Name of Father"
+              name="nameOfFather"
+              value={personalInfo.nameOfFather || ""}
+              onChange={(e) => handleFieldChange("nameOfFather", e.target.value)}
+              sx={textFieldStyles}
+            />
+          </Grid>
+
+
+          <Grid size={{ xs: 12, md: 2 }}>
+            <ComboBox
+              label="Mother Title"
+              fieldName="motherTitle"
+              value={personalInfo.motherTitle}
+              options={["Mrs", "Miss", "Dr", "CA", "Advocate"]}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <StyledTextField
+              label="Name of Mother"
+              name="nameOfMother"
+              value={personalInfo.nameOfMother || ""}
+              onChange={(e) => handleFieldChange("nameOfMother", e.target.value)}
+              sx={textFieldStyles}
+            />
+          </Grid>
+
+
           <Grid size={{ xs: 12, md: 3 }}>
             <StyledTextField
-              label="Amount in Credit"
-              name="amountInCredit"
-              type="number"
-              value={personalInfo.amountInCredit || ""}
-              onChange={(e) =>
-                handleFieldChange("amountInCredit", e.target.value)
-              }
+              label="Date of Birth"
+              type="date"
+              name="dateOfBirth"
+              InputLabelProps={{ shrink: true }}
+              value={personalInfo.dateOfBirth || ""}
+              onChange={(e) => handleDateOfBirthChange(e.target.value)}
+              error={!!dobError}
+              helperText={dobError}
               sx={textFieldStyles}
-              InputProps={{
-                startAdornment: (
-                  <Box component="span" sx={{ color: 'text.secondary', mr: 1 }}>
-                    ₹
-                  </Box>
-                ),
+            />
+          </Grid>
+
+
+          <Grid size={{ xs: 12, md: 3 }}>
+            <StyledTextField
+              label="Age in Years"
+              name="ageInYears"
+              value={personalInfo.ageInYears || ""}
+              InputProps={{ readOnly: true }}
+              sx={{
+                ...textFieldStyles,
+                '& .MuiOutlinedInput-root': {
+                  ...textFieldStyles['& .MuiOutlinedInput-root'],
+                }
               }}
             />
           </Grid>
 
-          {/* Civil Score */}
+
+          <Grid size={{ xs: 12, md: 3 }}>
+            <ComboBox
+              label="Minor"
+              fieldName="minor"
+              value={personalInfo.minor ? "Yes" : "No"}
+              options={["Yes", "No"]}
+            />
+          </Grid>
+
+
+          {personalInfo.minor === true && (
+            <>
+              <Grid size={{ xs: 12, md: 4 }}>
+                <StyledTextField
+                  label="Guardian Name"
+                  name="guardianName"
+                  value={personalInfo.guardianName || ""}
+                  onChange={(e) => handleFieldChange("guardianName", e.target.value)}
+                  sx={textFieldStyles}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, md: 4 }}>
+                <ComboBox
+                  label="Relation with Guardian"
+                  fieldName="guardianRelation"
+                  value={personalInfo.guardianRelation}
+                  options={[
+                    "Father",
+                    "Mother",
+                    "Grandfather",
+                    "Grandmother",
+                    "Uncle",
+                    "Aunt",
+                  ]}
+                />
+              </Grid>
+            </>
+          )}
+
           <Grid size={{ xs: 12, md: 3 }}>
             <Box sx={{ position: 'relative' }}>
               <StyledTextField
                 label="Civil Score"
-                name="civilScore"
+                name="cibilScore"
                 type="number"
-                value={personalInfo.civilScore || ""}
+                value={creditInfo.cibilScore || ""}
                 onChange={(e) => handleCivilScoreChange(e.target.value)}
                 sx={textFieldStyles}
                 InputProps={{
@@ -293,141 +412,7 @@ const PersonalInfoForm = ({ formData, handleChange }) => {
             </Box>
           </Grid>
 
-          {/* Title ComboBox */}
-          <Grid size={{ xs: 12, md: 2 }}>
-            <Box sx={{ position: 'relative' }}>
-              <ComboBox
-                label="Title"
-                fieldName="title"
-                value={personalInfo.title}
-                options={["Mr", "Mrs", "Miss", "Dr", "CA", "Advocate"]}
-              />
-            </Box>
-          </Grid>
-
-          {/* Name of Member */}
-          <Grid size={{ xs: 12, md: 4 }}>
-            <StyledTextField
-              label="Name of Member"
-              name="nameOfMember"
-              value={personalInfo.nameOfMember || ""}
-              onChange={(e) => handleFieldChange("nameOfMember", e.target.value)}
-              sx={textFieldStyles}
-            />
-          </Grid>
-
-          {/* Father Title + Name */}
-          <Grid size={{ xs: 12, md: 2 }}>
-            <ComboBox
-              label="Father Title"
-              fieldName="fatherTitle"
-              value={personalInfo.fatherTitle}
-              options={["Mr", "Dr", "CA", "Advocate"]}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, md: 4 }}>
-            <StyledTextField
-              label="Name of Father"
-              name="nameOfFather"
-              value={personalInfo.nameOfFather || ""}
-              onChange={(e) => handleFieldChange("nameOfFather", e.target.value)}
-              sx={textFieldStyles}
-            />
-          </Grid>
-
-          {/* Mother Title + Name */}
-          <Grid size={{ xs: 12, md: 2 }}>
-            <ComboBox
-              label="Mother Title"
-              fieldName="motherTitle"
-              value={personalInfo.motherTitle}
-              options={["Mrs", "Miss", "Dr", "CA", "Advocate"]}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, md: 4 }}>
-            <StyledTextField
-              label="Name of Mother"
-              name="nameOfMother"
-              value={personalInfo.nameOfMother || ""}
-              onChange={(e) => handleFieldChange("nameOfMother", e.target.value)}
-              sx={textFieldStyles}
-            />
-          </Grid>
-
-          {/* DOB */}
           <Grid size={{ xs: 12, md: 3 }}>
-            <StyledTextField
-              label="Date of Birth"
-              type="date"
-              name="dateOfBirth"
-              InputLabelProps={{ shrink: true }}
-              value={personalInfo.dateOfBirth || ""}
-              onChange={(e) => handleDateOfBirthChange(e.target.value)}
-              error={!!dobError}
-              helperText={dobError}
-              sx={textFieldStyles}
-            />
-          </Grid>
-
-          {/* Age */}
-          <Grid size={{ xs: 12, md: 3 }}>
-            <StyledTextField
-              label="Age in Years"
-              name="ageInYears"
-              value={personalInfo.ageInYears || ""}
-              InputProps={{ readOnly: true }}
-              sx={{
-                ...textFieldStyles,
-                '& .MuiOutlinedInput-root': {
-                  ...textFieldStyles['& .MuiOutlinedInput-root'],
-                }
-              }}
-            />
-          </Grid>
-
-          {/* Minor */}
-          <Grid size={{ xs: 12, md: 2 }}>
-            <ComboBox
-              label="Minor"
-              fieldName="isMinor"
-              value={personalInfo.isMinor}
-              options={["Yes", "No"]}
-            />
-          </Grid>
-
-          {/* Guardian Fields (if minor) */}
-          {personalInfo.isMinor === "Yes" && (
-            <>
-              <Grid size={{ xs: 12, md: 4 }}>
-                <StyledTextField
-                  label="Guardian Name"
-                  name="guardianName"
-                  value={personalInfo.guardianName || ""}
-                  onChange={(e) => handleFieldChange("guardianName", e.target.value)}
-                  sx={textFieldStyles}
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, md: 3 }}>
-                <ComboBox
-                  label="Relation with Guardian"
-                  fieldName="guardianRelation"
-                  value={personalInfo.guardianRelation}
-                  options={[
-                    "Father",
-                    "Mother",
-                    "Grandfather",
-                    "Grandmother",
-                    "Uncle",
-                    "Aunt",
-                  ]}
-                />
-              </Grid>
-            </>
-          )}
-
-          {/* Gender */}
-          <Grid size={{ xs: 12, md: 2 }}>
             <ComboBox
               label="Gender"
               fieldName="gender"
@@ -436,8 +421,8 @@ const PersonalInfoForm = ({ formData, handleChange }) => {
             />
           </Grid>
 
-          {/* Religion */}
-          <Grid size={{ xs: 12, md: 2 }}>
+
+          <Grid size={{ xs: 12, md: 3 }}>
             <ComboBox
               label="Religion"
               fieldName="religion"
@@ -453,7 +438,7 @@ const PersonalInfoForm = ({ formData, handleChange }) => {
             />
           </Grid>
 
-          {/* Marital Status */}
+
           <Grid size={{ xs: 12, md: 3 }}>
             <ComboBox
               label="Marital Status"
@@ -463,7 +448,7 @@ const PersonalInfoForm = ({ formData, handleChange }) => {
             />
           </Grid>
 
-          {/* Spouse Fields */}
+
           {personalInfo.maritalStatus === "Married" && (
             <Grid size={{ xs: 12, md: 4 }}>
               <Grid container spacing={2}>
@@ -488,7 +473,7 @@ const PersonalInfoForm = ({ formData, handleChange }) => {
             </Grid>
           )}
 
-          {/* Caste */}
+
           <Grid size={{ xs: 12, md: 3 }}>
             <ComboBox
               label="Caste"
@@ -498,7 +483,7 @@ const PersonalInfoForm = ({ formData, handleChange }) => {
             />
           </Grid>
 
-          {/* Contact Information Section Visual Break */}
+
           <Grid size={{ xs: 12 }}>
             <Box
               sx={{
@@ -518,38 +503,90 @@ const PersonalInfoForm = ({ formData, handleChange }) => {
             />
           </Grid>
 
-          {/* Phone */}
+
           <Grid size={{ xs: 12, md: 4 }}>
             <StyledTextField
-              label="Phone Number"
-              name="phoneNo"
-              value={personalInfo.phoneNo || ""}
-              onChange={(e) => handleFieldChange("phoneNo", e.target.value)}
+              label="Primary Number"
+              name="phoneNo1"
+              value={personalInfo.phoneNo1 || ""}
+              onChange={(e) => handleFieldChange("phoneNo1", e.target.value)}
               sx={textFieldStyles}
             />
           </Grid>
 
-          {/* Alternate Phone */}
           <Grid size={{ xs: 12, md: 4 }}>
             <StyledTextField
-              label="Alternate Phone Number"
-              name="alternatePhoneNo"
-              value={personalInfo.alternatePhoneNo || ""}
-              onChange={(e) =>
-                handleFieldChange("alternatePhoneNo", e.target.value)
-              }
+              label="Secondary Number"
+              name="phoneNo2"
+              value={personalInfo.phoneNo2 || ""}
+              onChange={(e) => handleFieldChange("phoneNo2", e.target.value)}
               sx={textFieldStyles}
             />
           </Grid>
 
-          {/* Email */}
+
           <Grid size={{ xs: 12, md: 4 }}>
             <StyledTextField
-              label="Email Id"
-              name="emailId"
+              label="WhatsApp Number"
+              name="whatsapp"
+              value={personalInfo.whatsapp || ""}
+              onChange={(e) => handleFieldChange("whatsapp", e.target.value)}
+              sx={textFieldStyles}
+            />
+          </Grid>
+
+
+          <Grid size={{ xs: 12, md: 4 }}>
+            <StyledTextField
+              label="Landline No."
+              name="landlineNo"
+              value={personalInfo.landlineNo || ""}
+              onChange={(e) => handleFieldChange("landlineNo", e.target.value)}
+              sx={textFieldStyles}
+            />
+          </Grid>
+
+
+          <Grid size={{ xs: 12, md: 4 }}>
+            <StyledTextField
+              label="Office Landline No."
+              name="landlineOffice"
+              value={personalInfo.landlineOffice || ""}
+              onChange={(e) => handleFieldChange("landlineOffice", e.target.value)}
+              sx={textFieldStyles}
+            />
+          </Grid>
+
+
+          <Grid size={{ xs: 12, md: 4 }}>
+            <StyledTextField
+              label="Primary Email"
+              name="emailId1"
               type="email"
-              value={personalInfo.emailId || ""}
-              onChange={(e) => handleFieldChange("emailId", e.target.value)}
+              value={personalInfo.emailId1 || ""}
+              onChange={(e) => handleFieldChange("emailId1", e.target.value)}
+              sx={textFieldStyles}
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12, md: 4 }}>
+            <StyledTextField
+              label="Secondary Email"
+              name="emailId2"
+              type="email"
+              value={personalInfo.emailId2 || ""}
+              onChange={(e) => handleFieldChange("emailId2", e.target.value)}
+              sx={textFieldStyles}
+            />
+          </Grid>
+
+          <Grid size={{ xs: 12, md: 4 }}>
+            <StyledTextField
+              label="Optional Email"
+              name="emailId3"
+              type="email"
+              value={personalInfo.emailId3 || ""}
+              onChange={(e) => handleFieldChange("emailId3", e.target.value)}
               sx={textFieldStyles}
             />
           </Grid>
