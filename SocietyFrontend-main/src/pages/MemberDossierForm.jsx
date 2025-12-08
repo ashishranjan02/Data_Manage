@@ -287,11 +287,20 @@ const MemberDossierForm = () => {
       /* -----------------------------------------
          PERSONAL DETAILS
       ----------------------------------------- */
-      Object.entries(values.personalInformation || {}).forEach(([key, value]) => {
-        if (value !== "" && value !== null && value !== undefined) {
-          formDataToSend.append(`personalDetails[${key}]`, value);
-        }
-      });
+     Object.entries(values.personalInformation || {}).forEach(([key, value]) => {
+
+  // Convert Yes/No of minor to boolean
+  if (key === "minor") {
+    const boolValue = value === "Yes" ? true : false;
+    formDataToSend.append(`personalDetails[minor]`, boolValue);
+    return;
+  }
+
+  if (value !== "" && value !== null && value !== undefined) {
+    formDataToSend.append(`personalDetails[${key}]`, value);
+  }
+});
+
 
       /* -----------------------------------------
          ADDRESS DETAILS
