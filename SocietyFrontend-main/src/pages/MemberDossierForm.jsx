@@ -68,7 +68,8 @@ const MemberDossierForm = () => {
       emailId3: "",
       landlineNo: "",
       landlineOffice: "",
-      civilScore: "",
+      resignationDate: "",
+
     },
 
     Address: {
@@ -162,6 +163,7 @@ const MemberDossierForm = () => {
     },
 
     bankDetails: [{
+      accountHolderName: "",
       bankName: "",
       branch: "",
       accountNumber: "",
@@ -190,6 +192,10 @@ const MemberDossierForm = () => {
       optionalDeposit: "",
       compulsory: ""
     }],
+
+    creditDetails: {
+      cibilScore: "",
+    },
   };
 
   const [formData, setFormData] = useState(initialFormData);
@@ -287,21 +293,19 @@ const MemberDossierForm = () => {
       /* -----------------------------------------
          PERSONAL DETAILS
       ----------------------------------------- */
-     Object.entries(values.personalInformation || {}).forEach(([key, value]) => {
+      Object.entries(values.personalInformation || {}).forEach(([key, value]) => {
 
-  // Convert Yes/No of minor to boolean
-  if (key === "minor") {
-    const boolValue = value === "Yes" ? true : false;
-    formDataToSend.append(`personalDetails[minor]`, boolValue);
-    return;
-  }
+        // Convert Yes/No of minor to boolean
+        if (key === "minor") {
+          const boolValue = value === "Yes" ? true : false;
+          formDataToSend.append(`personalDetails[minor]`, boolValue);
+          return;
+        }
 
-  if (value !== "" && value !== null && value !== undefined) {
-    formDataToSend.append(`personalDetails[${key}]`, value);
-  }
-});
-
-
+        if (value !== "" && value !== null && value !== undefined) {
+          formDataToSend.append(`personalDetails[${key}]`, value);
+        }
+      });
       /* -----------------------------------------
          ADDRESS DETAILS
       ----------------------------------------- */
@@ -485,7 +489,7 @@ const MemberDossierForm = () => {
       (values.bankDetails || []).forEach((bank, index) => {
         Object.entries(bank || {}).forEach(([key, value]) => {
           if (value !== null && value !== undefined && value !== "") {
-            formDataToSend.append(`bankDetails[${key}]`, value.toString());
+            formDataToSend.append(`bankDetails[${index}][${key}]`, value.toString());
           }
         });
       });
@@ -532,7 +536,12 @@ const MemberDossierForm = () => {
       if (financialData.compulsory) {
         formDataToSend.append("financialDetails[compulsory]", financialData.compulsory);
       }
-
+      if (values.creditDetails?.cibilScore) {
+        formDataToSend.append(
+          "creditDetails[cibilScore]",
+          values.creditDetails.cibilScore.toString()
+        );
+      }
       /* -----------------------------------------
          REFERENCES
       ----------------------------------------- */
@@ -753,4 +762,4 @@ const MemberDossierForm = () => {
   );
 };
 
-export default MemberDossierForm;
+export default MemberDossierForm;   

@@ -16,6 +16,7 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import { Link, useLocation } from "react-router-dom";
 import PeopleIcon from "@mui/icons-material/People";
 import RealEstateAgentIcon from "@mui/icons-material/RealEstateAgent";
+import SummarizeIcon from '@mui/icons-material/Summarize';
 
 const Sidebar = () => {
     const location = useLocation();
@@ -24,10 +25,11 @@ const Sidebar = () => {
         { label: "Dashboard", route: "/dashboard", icon: <DashboardIcon /> },
         { label: "Member", route: "/memberdetail", icon: <PeopleIcon /> },
         { label: "Report", route: "/report", icon: <AssessmentIcon /> },
-        { label: "Loan", route: "/view-loan", icon: <RealEstateAgentIcon /> },
-        { label: "Surety Report", route: "/surety-report", icon: <AssessmentIcon /> },
+        // { label: "Loan", route: "/view-loan", icon: <RealEstateAgentIcon /> },
+        // { label: "Surety Report", route: "/surety-report", icon: <AssessmentIcon /> },
         { label: "Greeting", route: "/greeting", icon: <EventSeatIcon /> },
         { label: "Notice", route: "/notice", icon: <AssessmentIcon /> },
+        { label: "Summary", route: "/summary", icon: <SummarizeIcon /> },
     ];
 
     return (
@@ -38,9 +40,8 @@ const Sidebar = () => {
                 maxWidth: 240,
                 flexShrink: 0,
                 height: "100vh",
-                bgcolor: "#1a237e",
+                bgcolor: "#ffffff",
                 borderRight: "1px solid #e0e0e0",
-                p: 2,
                 display: "flex",
                 flexDirection: "column",
                 position: "sticky",
@@ -48,22 +49,37 @@ const Sidebar = () => {
                 overflowY: "auto",
             }}
         >
-            {/* BRAND TITLE */}
-            <Box sx={{ textAlign: "center", mb: 2 }}>
+            {/* HEADER WITH DIAGONAL DESIGN */}
+            <Box
+                sx={{
+                    height: 80,
+                    background: `
+                        linear-gradient(120deg, #1A237E 55%, #1976D2 55%)
+                    `,
+                    position: "relative",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    p: '10px',
+                }}
+            >
                 <Typography
                     variant="h6"
                     sx={{
                         fontWeight: 700,
-                        color: "#ffffff",
-                        letterSpacing: "0.5px",
-                        fontSize: "17px",
+                        color: "#fff",
+                        textShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        fontSize: "18px",
                     }}
                 >
                     CA Co-Operative Society
                 </Typography>
             </Box>
 
-            <Divider sx={{ mb: 1,}} />
+            <Divider sx={{ mb: 2 }} />
 
             {/* MENU ITEMS */}
             <List sx={{ flexGrow: 1 }}>
@@ -80,19 +96,19 @@ const Sidebar = () => {
                                 borderRadius: 2,
                                 px: 2,
                                 py: 1.3,
-                                bgcolor: isActive ? "primary.main" : "transparent",
-                                color: "#ffffff",
+                                bgcolor: isActive ? "#e8eaf6" : "transparent",
+                                color: isActive ? "#1a237e" : "#444",
                                 fontWeight: isActive ? "600" : "normal",
                                 boxShadow: isActive ? "0 2px 6px rgba(0,0,0,0.1)" : "none",
                                 "&:hover": {
-                                    bgcolor: "primary.main",
+                                    bgcolor: "#f1f3f8",
                                     boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
                                 },
                             }}
                         >
                             <ListItemIcon
                                 sx={{
-                                    color: "#ffffff",
+                                    color: isActive ? "#1a237e" : "#616161",
                                     minWidth: "36px",
                                 }}
                             >

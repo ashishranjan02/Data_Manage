@@ -47,14 +47,14 @@ const memberSchema = new mongoose.Schema(
       landlineNo: { type: String },
       landlineOffice: { type: String },
       civilScore: { type: String },
-
+      resignationDate: { type: String },
     },
 
     // ===== ADDRESS DETAILS =====
     addressDetails: {
       residenceType: {
         type: String,
-        enum: ['Owned', 'Rented', 'Company Provided', 'Other'],
+        enum: ['Owned', 'Owned By Family', 'Rented', 'Company Provided', 'Other'],
       },
       permanentAddress: {
         flatHouseNo: { type: String },
@@ -123,8 +123,6 @@ const memberSchema = new mongoose.Schema(
       aadhaarNo: { type: String },
       voterId: { type: String },
       passportNo: { type: String },
-
-
       // PHOTOS
       panNoPhoto: { type: String },
       rationCardPhoto: { type: String },
@@ -185,13 +183,17 @@ const memberSchema = new mongoose.Schema(
     },
 
     // ===== BANK DETAILS =====
-    bankDetails: {
-      accountHolderName: { type: String },
-      bankName: { type: String },
-      branch: { type: String },
-      accountNumber: { type: String },
-      ifscCode: { type: String },
-    },
+    bankDetails: [
+      {
+        _id: false,
+        accountHolderName: { type: String },
+        bankName: { type: String },
+        branch: { type: String },
+        accountNumber: { type: String },
+        ifscCode: { type: String },
+      }
+    ],
+
 
     // ===== GUARANTEE DETAILS =====
     guaranteeDetails: {
