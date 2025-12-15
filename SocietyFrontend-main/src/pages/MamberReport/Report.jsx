@@ -983,8 +983,6 @@ const MissingMembersTable = () => {
                                                 </TableRow>
                                             </TableHead>
 
-
-
                                             <TableBody>
                                                 {paginatedMembers.map((m, idx) => {
                                                     const indexNumber = page * rowsPerPage + idx + 1;
@@ -997,9 +995,9 @@ const MissingMembersTable = () => {
                                                             onClick={() => navigate(`/member-details/${m._id}`)}
                                                             sx={{
                                                                 cursor: "pointer",
-                                                                bgcolor: isFieldMissing ? "#ffebee" : "inherit",
+                                                                bgcolor: isFieldMissing ? "#fffff" : "inherit",
                                                                 "&:hover": {
-                                                                    bgcolor: isFieldMissing ? "#ffcdd2" : "#fffff",
+                                                                    bgcolor: isFieldMissing ? "#fffff" : "#fffff",
                                                                     transition: "0.2s",
                                                                 },
                                                             }}
